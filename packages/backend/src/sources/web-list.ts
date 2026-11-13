@@ -4,6 +4,7 @@ import { marked } from "marked";
 import { guardedFetch, languageHeaders, requireOk } from "../lib/http-fetch.ts";
 import { contentDocument, UnavailablePageError } from "../lib/page-content.ts";
 import { fetchListing } from "./listing-fetch.ts";
+import { toDate } from "./json-list.ts";
 import { identityKeyForUrl, normalizeUrl } from "../lib/url.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { isSignInRedirect, isSignInUrl, pagePublicationDate, pageRules, readableDocument, type ExtractedBody } from "../content/extract.ts";
@@ -17,8 +18,14 @@ import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 /** A date rule names one element; unrelated tooltips must not hide its visible publication date. */
 function elementDate(el: ReturnType<cheerio.CheerioAPI>, utcOffset?: string): PublicationDate {
   for (const value of [el.attr("datetime"), el.attr("content"), el.attr("title"), el.text()]) {
-    const date = readPublicationDate(value, utcOffset);
+    // Some bylines put the year and MM/DD on separate lines in the same date node.
+    const normalized = value?.trim().replace(/^(\d{4})\s+(\d{1,2}\/\d{1,2})(\s+\d{1,2}:\d{2}(?::\d{2})?)?$/, "$1/$2$3");
+    const date = readPublicationDate(normalized, utcOffset);
     if (date.publishedAt) return date;
+  }
+  const parts = el.children("p").slice(0, 3).toArray().map(node => collapseWhitespace(el.find(node).text()));
+  if (parts.length === 3 && /^\d{4}$/.test(parts[0]!) && /^\d{1,2}\/\d{1,2}$/.test(parts[1]!) && /^\d{1,2}:\d{2}$/.test(parts[2]!)) {
+    return readPublicationDate(`${parts[0]}/${parts[1]} ${parts[2]}`, utcOffset);
   }
   return readRelativeDate(el.text(), new Date(), utcOffset);
 }
@@ -83,8 +90,38 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     const page = await jinaRead(target, { purpose: "source_listing", subject: `source:${source.id}`, cacheToleranceSeconds: source.config.cacheToleranceSeconds, format, perRead: true });
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
-  const res = requireOk(await fetchListing(url, { headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8", ...languageHeaders(source.config.acceptLanguage) }, timeoutMs: 25_000 }));
-  const text = res.text();
+  const idCards = ["xinwanr_news", "bianews_news"].includes(source.config.adapter);
+  const headers = { accept: "text/html,application/xhtml+xml,*/*;q=0.8", ...languageHeaders(source.config.acceptLanguage) };
+  let res = requireOk(await fetchListing(url, {
+    headers: { ...headers, ...(idCards ? { "content-type": "application/x-www-form-urlencoded" } : {}) },
+    ...(idCards ? { method: "POST", body: `page_no=1&page_size=${source.config.adapter === "bianews_news" ? 20 : 50}` } : {}), timeoutMs: 25_000,
+  }));
+  let text = res.text();
+  // Electronic newspapers point a permanent listing address at today's issue with an immediate meta refresh.
+  for (let hop = 0; ; hop++) {
+    const $ = cheerio.load(text);
+    const refresh = $('meta[http-equiv]').toArray().find(el => $(el).attr('http-equiv')?.toLowerCase() === 'refresh');
+    const target = refresh && /^\s*0\s*;\s*url\s*=\s*["']?([^"']+?)["']?\s*$/i.exec($(refresh).attr('content') ?? '')?.[1];
+    if (!target) break;
+    const next = new URL(target, res.url);
+    if (hop >= 2 || next.origin !== new URL(res.url).origin) throw new FetchError("listing meta refresh exceeds same-origin limit");
+    res = requireOk(await fetchListing(next.href, { headers, redirectPolicy: "same-origin", timeoutMs: 25_000 }));
+    text = res.text();
+  }
+  if (source.config.adapter === "lmtw_news") {
+    const value = (name: string) => new RegExp(`var ${name}\\s*=\\s*["']([^"']*)["']`).exec(text)?.[1];
+    const tab = value("tab_id"), keyword = value("keyword_id"), label = value("keyword_name");
+    if (!tab || !keyword || label === undefined) throw new FetchError("lmtw_news: missing public listing parameters");
+    const cookie = res.headers.getSetCookie().map(s => s.split(";", 1)[0]).join("; ");
+    const response = requireOk(await fetchListing(new URL("/mzw/content/ajaxGetNewsList", res.url).href, {
+      method: "POST", redirectPolicy: "same-origin", timeoutMs: 25_000,
+      headers: { "content-type": "application/x-www-form-urlencoded", "x-requested-with": "XMLHttpRequest", referer: res.url, ...(cookie ? { cookie } : {}) },
+      body: new URLSearchParams({ tab_id: tab, keyword_id: keyword, keyword: label, refresh: "1" }).toString(),
+    }));
+    const data = JSON.parse(response.text());
+    if (data.code !== 1 || typeof data.data?.html !== "string") throw new FetchError("lmtw_news: invalid public listing response");
+    text = data.data.html;
+  }
   contentDocument(text);
   return { text, viaJina: false, base: source.config.baseUrl ?? res.url };
 }
@@ -158,7 +195,13 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
   for (const node of nodes) {
     const el = $(node);
     const linkEl = c.linkSelector ? (el.is(c.linkSelector) ? el : el.find(c.linkSelector).first()) : el.is("a") ? el : el.find("a[href]").first();
-    const url = absolute(linkEl.attr("href"), base);
+    // These public news cards expose numeric article IDs instead of anchor hrefs.
+    const idCards = ["xinwanr_news", "bianews_news"].includes(source.config.adapter);
+    const id = idCards ? el.attr("id") : null;
+    const href = idCards
+      ? id && /^\d+$/.test(id) ? `/news/details?id=${id}` : undefined
+      : linkEl.attr(c.linkAttribute ?? "href");
+    const url = absolute(href, base);
     if (!url || seen.has(url) || !allowed(url, source)) continue;
     // A card or a nav link to the site's sign-in form is no post.
     if (isSignInUrl(url)) continue;
@@ -409,7 +452,7 @@ export async function fetchDetail(url: string, source: SourceRow, need: DetailNe
     // missing, no other timestamp on the page (an update time, a related post) stands in for it.
     const dateText = dateInJina ? jina : html;
     if ($ && !dateInJina && d.publishedAtSelector) date = elementDate($(d.publishedAtSelector).first(), offset);
-    if (!date.publishedAt && d.publishedAtRegex && dateText !== null) date = readPublicationDate(new RegExp(d.publishedAtRegex).exec(dateText)?.[1], offset);
+    if (!date.publishedAt && d.publishedAtRegex && dateText !== null) date = toDate(new RegExp(d.publishedAtRegex).exec(dateText)?.[1], d.publishedAtUnit, offset);
     const authoritative = d.publishedAtAuthoritative === true && !!(d.publishedAtSelector || d.publishedAtRegex);
     if (!date.publishedAt && page && !authoritative) date = pagePublicationDate(page.document, offset);
   }

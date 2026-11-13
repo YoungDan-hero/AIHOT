@@ -1,5 +1,6 @@
 // JSON sources: plain JSON APIs, JSON embedded in HTML (script tags, window variables).
 import { credential } from "../config.ts";
+import JSON5 from "json5";
 import { languageHeaders, requireOk } from "../lib/http-fetch.ts";
 import { JINA_PREFIX, jinaRead } from "../providers/jina.ts";
 import { fetchListing } from "./listing-fetch.ts";
@@ -56,6 +57,10 @@ export function toDate(v: unknown, unit: string | undefined, utcOffset: string |
     const m = /^(\d{4})(\d{2})(\d{2})$/.exec(text);
     return m ? readPublicationDate(`${m[1]}-${m[2]}-${m[3]}`, utcOffset) : unknown;
   }
+  if (unit === "dmy") {
+    const m = /^(\d{2})([-.])(\d{2})\2(\d{4})$/.exec(text);
+    return m ? readPublicationDate(`${m[4]}-${m[3]}-${m[1]}`, utcOffset) : unknown;
+  }
   return readPublicationDate(text, utcOffset);
 }
 
@@ -84,6 +89,16 @@ function literalEnd(text: string, start: number): number {
       continue;
     }
     if (ch === '"' || ch === "'") inStr = ch;
+    else if (ch === "/" && text[i + 1] === "/") {
+      const end = text.indexOf("\n", i + 2);
+      if (end < 0) return -1;
+      i = end;
+    }
+    else if (ch === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      if (end < 0) return -1;
+      i = end + 1;
+    }
     else if (ch === "{" || ch === "[") depth++;
     else if (ch === "}" || ch === "]") {
       depth--;
@@ -102,7 +117,7 @@ function embeddedJson(html: string, source: SourceRow): unknown {
     if (!m) throw new FetchError(`window.${name} not found`);
     const start = m.index + m[0].length;
     const end = literalEnd(html, start);
-    if (end > 0) return JSON.parse(html.slice(start, end));
+    if (end > 0) return JSON5.parse(html.slice(start, end));
     throw new FetchError(`window.${name} not terminated`);
   }
   // html_json_key: scan JSON script blocks (e.g. __NEXT_DATA__) for the key.

@@ -79,7 +79,10 @@
 ```
 
 - `itemSelector` 在整个页面找条目；`linkSelector`、`titleSelector` 在每个条目内取第一个匹配节点，也可以匹配条目自身。选 `.news-list` 只会得到一个容器，通常只取到第一条新闻；只写 `div` 又会混入嵌套容器。要选重复出现的新闻节点。
-- 链接取自 `href`；`/posts/first` 等相对链接按列表重定向后的最终地址解析，也可用 `baseUrl` 指定基准地址。标题取节点文字。重复链接会合并；Markdown 列表先出现“Read more”等按钮、后出现真实标题时，使用真实标题。指向列表自身的链接通常会跳过。
+- 链接默认取自 `href`，有些列表将文章路径放在 `data-link` 或 `data-href`，可用 `linkAttribute` 指定（仍执行正常URL校验）。`/posts/first` 等相对链接按列表重定向后的最终地址解析，也可用 `baseUrl` 指定基准地址。标题取节点文字。重复链接会合并；Markdown 列表先出现“Read more”等按钮、后出现真实标题时，使用真实标题。指向列表自身的链接通常会跳过。
+- 新腕儿的公开列表使用 `adapter: "xinwanr_news"`，`url` 填 `https://www.xinwanr.com/news_list_index`。采集器按公开前端参数POST表单，按数字卡片ID生成详情链接；选择器仍用于标题/摘要，完整日期从详情的 `.pub_time` 补齐，不推测列表月份的年份。
+- 鞭牛士同类公开列表使用 `adapter: "bianews_news"`，POST首页20条，按数字卡片ID生成同站详情地址。电子报永久列表入口的即时 `meta refresh` 最多跟随两层同源地址，再用最终地址解析相对链接；不执行页面脚本。
+- 详情日期正则捕获Unix秒/毫秒或明确的 `DD-MM-YYYY` / `DD.MM.YYYY` 时，可用 `detail.publishedAtUnit` 声明 `epoch_s`、`epoch_ms` 或 `dmy`。未声明仍按普通日期处理，不猜测模糊的日月顺序；正则应只匹配该文章自己的发布时间。
 - 日期在条目内查找 `publishedAtSelector`，依次尝试 `datetime`、`content`、`title` 属性和文字，无法解析的提示文字不会遮住同一节点的有效日期。没有时区的日期时间可用 `publishedAtUtcOffset`（默认 `+08:00`）；自带时区的时间保留原时区语义，纯 `YYYY-MM-DD` 按 UTC 零点读。不完整的月份、产品版本号和不存在的日历日期不作为发布日期。
 - `parseMode`：普通网页默认 `html`；`markdown` 按 Markdown 链接读；`docusaurus_changelog` 读更新日志标题；`intercom_changelog` 按 Intercom 帮助中心的日期章节读取标题和正文，每节保留自己的网址锚点，默认按 UTC 日历日读取，也可指定 `publishedAtUtcOffset`。需要 Jina 时，显式把 `url` 写成 `https://r.jina.ai/https://目标站/路径` 并配置 `JINA_API_KEY`，不是抓不到就自动切换。Jina 默认返回 Markdown；要继续使用 CSS 选择器，显式设 `parseMode: "html"`。
 - `detail`：列表缺日期、标题或摘要时抓详情页补齐（`publishedAtSelector`、`titleSelector`、`summarySelector` 等）。`maxFetches` 是每轮最多读几篇详情页，不设时为 0，即一篇都不读：每读一篇就多一次请求，所以要信源自己声明。读取失败或本轮 `maxFetches` 用完的条目，后续抓取继续补全；补元数据时保留已确认的正文。已有真实标题不会因为列表仍写“Read the Blog”而被换回按钮文字，也不会仅因标题较长再次读取详情。需要强制使用详情标题时设置 `titleAuthoritative: true`。详情页和正文提取读到不带时区的时间时，先用 `detail.publishedAtUtcOffset`，未设则继承信源的 `publishedAtUtcOffset`，两处都未设时默认 `+08:00`。RSS、JSON 列表也可以用 `detail`。
@@ -87,6 +90,8 @@
 - `allowUrlPrefixes` / `denyUrlPrefixes`：只收某些路径下的文章。
 
 ### json_list
+
+`mode: "html_window_var"` 可读取公开HTML或JS文件中的静态数组/对象（`windowVar` 指定变量名），支持JSON5的注释、单引号及未加引号键。仅解析数据字面量，不执行脚本、函数或表达式。
 
 假设接口返回下面的结构，`itemsPath` 指向数组，其他字段路径相对**每个数组元素**填写。路径用点分隔，不是 JSONPath，不写 `$` 或 `[*]`。
 
@@ -224,6 +229,8 @@ http.createServer((req, res) => {
 - **全文**：`site_fulltext` 决定站内能不能显示全文，`syndicate_fulltext` 决定全文 RSS 能不能带正文。两者**默认都关**，只显示摘要和原文链接；来源明确允许时再打开。公众号、付费墙内容不会因为技术上抓得到就获得全文展示。
 
 ## 抓取频率
+
+综合信源可配置 `ingestNoiseFilter.requireMarkers`，例如 `["短剧", "漫剧", "microdrama", "vertical drama"]`。标题、摘要或列表/RSS已带的正文至少命中一个词才入库（忽略大小写），不会为预筛额外请求正文；没有命中的内容不会进入模型队列。该门槛先于 `keepIfMatches` 的噪声豁免；省略或空数组沿用原行为。必须使用非空字符串，最终行业相关性仍由模型判断。
 
 每个信源有自己的抓取间隔。每天 04:20 会按近 7 天的产出自动调整：产出多的抓得勤，最短 15 分钟（经 Jina 读的网页列表最短 60 分钟）；最长的，一般信源 60 分钟，X 账号和经 Jina 读的网页列表 120 分钟，只作热度证据的 180 分钟。合并搜索的 X 账号跟着合并后的节奏：进精选的半小时一次，只作热度证据的一小时一次。
 

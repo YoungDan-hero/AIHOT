@@ -4,10 +4,16 @@
 import { gate, Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
+import { getGlobalDispatcher, MockAgent, setGlobalDispatcher } from "undici";
+import { DEPLOYMENT } from "@aihot/site";
 import { config } from "@aihot/backend/config";
 import { closeDb, sql } from "@aihot/backend/db";
 import { stopBoss } from "@aihot/backend/jobs/queue";
 import { collectSource } from "@aihot/backend/sources/collect";
+import { guardedFetch } from "@aihot/backend/lib/http-fetch";
 
 const T = tag();
 const X_SOURCE = `test-x-${T}`;
@@ -97,5 +103,87 @@ test("finishing an in-flight collection cannot overwrite a source's paused state
       assert.equal((await collecting).status,failed?'failed':'ok');
       assert.equal((await sql`SELECT health FROM sources WHERE id=${id}`)[0]!.health,'paused');
     } finally {release.open();heldResponse=null;}
+  }
+});
+
+test("host pacing spaces concurrent requests, cancels an expired wait and recovers", async () => {
+  const starts: number[] = [];
+  const server = await stub(() => { starts.push(Date.now()); return { ok: true }; });
+  const intervals = (DEPLOYMENT as { publicFetchIntervalsMs: Partial<Record<string, number>> }).publicFetchIntervalsMs;
+  intervals["127.0.0.1"] = 120;
+  try {
+    await sql`DELETE FROM settings WHERE key = 'egress.host.127.0.0.1'`;
+    await Promise.all([1, 2, 3].map(i => guardedFetch(`${server.url}/${i}`)));
+    assert.equal(starts.length, 3);
+    for (let i = 1; i < starts.length; i++) assert.ok(starts[i]! - starts[i - 1]! >= 105, "requests must not start together");
+    await assert.rejects(guardedFetch(`${server.url}/expired`, { timeoutMs: 20 }), { name: "TimeoutError" });
+    await delay(140);
+    assert.equal(starts.length, 3, "an expired permit wait must never dispatch later");
+    assert.equal((await guardedFetch(`${server.url}/recovered`)).status, 200);
+  } finally {
+    delete intervals["127.0.0.1"];
+    await sql`DELETE FROM settings WHERE key = 'egress.host.127.0.0.1'`;
+    await server.close();
+  }
+});
+
+test("redirects between bare and www hosts share one pacing permit", async () => {
+  const intervals = (DEPLOYMENT as { publicFetchIntervalsMs: Partial<Record<string, number>> }).publicFetchIntervalsMs;
+  intervals["paced.invalid"] = 120;
+  const previous = getGlobalDispatcher(), mock = new MockAgent();
+  mock.disableNetConnect();
+  const starts: number[] = [];
+  mock.get("https://paced.invalid").intercept({ path: "/start" }).reply(() => {
+    starts.push(Date.now()); return { statusCode: 302, data: "", responseOptions: { headers: { location: "https://www.paced.invalid/final" } } };
+  });
+  mock.get("https://www.paced.invalid").intercept({ path: "/final" }).reply(() => { starts.push(Date.now()); return { statusCode: 200, data: "paced" }; });
+  setGlobalDispatcher(mock);
+  try {
+    await sql`DELETE FROM settings WHERE key = 'egress.host.paced.invalid'`;
+    assert.equal((await guardedFetch("https://paced.invalid/start")).text(), "paced");
+    assert.equal(starts.length, 2);
+    assert.ok(starts[1]! - starts[0]! >= 105);
+    assert.equal((await sql`SELECT key FROM settings WHERE key IN ('egress.host.paced.invalid', 'egress.host.www.paced.invalid')`).length, 1);
+  } finally {
+    delete intervals["paced.invalid"];
+    setGlobalDispatcher(previous); await mock.close();
+    await sql`DELETE FROM settings WHERE key = 'egress.host.paced.invalid'`;
+  }
+});
+
+test("separate API and worker processes share the same host pacing state", async () => {
+  const starts: number[] = [];
+  const server = await stub(() => { starts.push(Date.now()); return { ok: true }; });
+  const intervals = (DEPLOYMENT as { publicFetchIntervalsMs: Partial<Record<string, number>> }).publicFetchIntervalsMs;
+  intervals["127.0.0.1"] = 160;
+  const child = spawn(process.execPath, ["--input-type=module", "--eval", `
+    import { config } from ${JSON.stringify(new URL("../packages/backend/src/config.ts", import.meta.url).href)};
+    import { DEPLOYMENT } from ${JSON.stringify(new URL("../site/site.ts", import.meta.url).href)};
+    import { guardedFetch } from ${JSON.stringify(new URL("../packages/backend/src/lib/http-fetch.ts", import.meta.url).href)};
+    import { closeDb } from ${JSON.stringify(new URL("../packages/backend/src/db.ts", import.meta.url).href)};
+    config.allowPrivateNetworkFetch = true;
+    DEPLOYMENT.publicFetchIntervalsMs['127.0.0.1'] = 160;
+    process.send('ready');
+    process.once('message', async () => {
+      try { await guardedFetch(${JSON.stringify(server.url + "/worker")}); process.send('done'); }
+      catch (error) { process.send({ error: String(error) }); }
+      finally { await closeDb(); process.disconnect(); }
+    });
+  `], { stdio: ["ignore", "ignore", "inherit", "ipc"] });
+  try {
+    const ready = await Promise.race([once(child, "message"), once(child, "exit").then(() => { throw new Error("pacing fixture stopped before ready"); })]);
+    assert.equal(ready[0], "ready");
+    await sql`DELETE FROM settings WHERE key = 'egress.host.127.0.0.1'`;
+    const done = once(child, "message");
+    child.send("go");
+    const [, [result]] = await Promise.all([guardedFetch(server.url + "/preview"), done]);
+    assert.equal(result, "done");
+    assert.equal(starts.length, 2);
+    assert.ok(starts[1]! - starts[0]! >= 145, "separate processes must not maintain separate pacing clocks");
+  } finally {
+    delete intervals["127.0.0.1"];
+    child.kill();
+    await sql`DELETE FROM settings WHERE key = 'egress.host.127.0.0.1'`;
+    await server.close();
   }
 });

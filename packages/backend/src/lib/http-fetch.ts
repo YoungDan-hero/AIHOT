@@ -1,6 +1,7 @@
 // Outbound HTTP for collectors, the image proxy and the paid APIs: SSRF guard, routing, limits.
 import net from "node:net";
 import { addAbortListener } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import { Agent, Pool, ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { config } from "../config.ts";
 import { assertPublicUrl, guardedLookup } from "./url.ts";
@@ -146,6 +147,37 @@ export const DEFAULT_UA = `Mozilla/5.0 (compatible; ${SITE.crawlerName}; +${conf
 /** The language a source asked for (its config.acceptLanguage), replacing the default preference above. */
 export const languageHeaders = (language: string | undefined): Record<string, string> => language ? { "accept-language": language } : {};
 
+/** API previews and worker jobs share a permit; waiting holds no transaction or database connection. */
+async function waitForHost(url: URL, signal: AbortSignal): Promise<void> {
+  const host = hostOf(url).replace(/^www\./, "");
+  const intervals = (DEPLOYMENT as { publicFetchIntervalsMs?: Partial<Record<string, number>> }).publicFetchIntervalsMs;
+  const interval = intervals?.[host];
+  if (interval === undefined || interval === 0) return;
+  if (!Number.isFinite(interval) || interval < 0) throw new Error(`Invalid public fetch interval for ${host}`);
+  signal.throwIfAborted();
+  const { sql } = await import("../db.ts");
+  const key = `egress.host.${host}`;
+  for (;;) {
+    signal.throwIfAborted();
+    const granted = await withinDeadline(sql`
+      INSERT INTO settings (key, value, updated_by)
+      VALUES (${key}, jsonb_build_object('nextAtMs', floor(extract(epoch FROM clock_timestamp()) * 1000) + ${interval}::numeric), 'http-fetch')
+      ON CONFLICT (key) DO UPDATE SET
+        value = jsonb_build_object('nextAtMs', floor(extract(epoch FROM clock_timestamp()) * 1000) + ${interval}::numeric),
+        updated_at = clock_timestamp()
+      WHERE coalesce((settings.value->>'nextAtMs')::numeric, 0) <= floor(extract(epoch FROM clock_timestamp()) * 1000)
+      RETURNING key`, signal);
+    signal.throwIfAborted();
+    if (granted.length) return;
+    const [row] = await withinDeadline(sql<{ wait_ms: number }[]>`
+      SELECT greatest(1, least(${interval}::numeric,
+        ceil((value->>'nextAtMs')::numeric - extract(epoch FROM clock_timestamp()) * 1000)))::int AS wait_ms
+      FROM settings WHERE key = ${key}`, signal);
+    try { await delay(row?.wait_ms ?? 1, undefined, { signal }); }
+    catch (error) { signal.throwIfAborted(); throw error; }
+  }
+}
+
 export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}): Promise<GuardedResponse> {
   // One budget includes DNS, every redirect and the body. Restarting it at each hop allowed a
   // nominal 20 s image request to occupy the API for minutes.
@@ -168,6 +200,7 @@ export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}
   let method = (opts.method ?? "GET").toUpperCase();
   let requestBody = opts.body;
   for (let hop = 0; ; hop++) {
+    await waitForHost(url, signal);
     const viaProxy = proxied(url, route, privateHosts);
     const privateHost = privateHosts.includes(hostOf(url));
     const send = (dispatcher: Dispatcher | undefined) => undiciFetch(url, {

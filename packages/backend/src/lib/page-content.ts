@@ -43,6 +43,14 @@ function leadText(node: PageNode, out: string[] = [], length = { chars: 0 }): st
 /** The page, parsed once, after its title, main heading and opening text passed the boundary check. */
 export function contentDocument(html: string) {
   const { document } = parseHTML(html);
+  // Some publisher templates omit <body>; Readability needs the body ancestor a browser would create.
+  const root = document.documentElement;
+  if (root?.tagName === "HTML" && !document.querySelector("body")) {
+    const body = document.createElement("body");
+    const head = document.querySelector("head");
+    for (const node of Array.from(root.childNodes)) if (node !== head) body.appendChild(node);
+    root.appendChild(body);
+  }
   const body = document.querySelector("body");
   assertPageContent(document.querySelector("title")?.textContent ?? "", body ? leadText(body as unknown as PageNode) : stripTags(html));
   assertPageContent(document.querySelector("h1")?.textContent ?? "", "");

@@ -3,8 +3,9 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { DEPLOYMENT } from "@aihot/site";
+import { credential } from "../config.ts";
 import { sql } from "../db.ts";
-import { guardedFetch, languageHeaders } from "../lib/http-fetch.ts";
+import { guardedFetch, HttpStatusError, languageHeaders } from "../lib/http-fetch.ts";
 import { assertPageContent, contentDocument, UnavailablePageError } from "../lib/page-content.ts";
 import { escapeXml, stripTags } from "../lib/text.ts";
 import { isVideoPageUrl } from "../lib/video-url.ts";
@@ -800,10 +801,12 @@ export async function extractFromUrl(url: string, subject: string, rules: PageRu
   const target = new URL(url);
   if (rules.bodyUrlSuffix) target.pathname += rules.bodyUrlSuffix;
   let read: { body: ExtractedBody; pageUrl: string } | null = null;
+  let nativeError: unknown;
   try {
     const res = await guardedFetch(target.href, { headers: languageHeaders(rules.acceptLanguage), timeoutMs: 20_000, maxBytes: 16 * 1024 * 1024 });
     if (isVideoPageUrl(res.url)) return null;
     if (isSignInRedirect(url, res.url)) return null;
+    if (res.status === 429 || res.status >= 500) nativeError = new HttpStatusError(res.status, `HTTP ${res.status} for article body`);
     const type = res.headers.get("content-type") ?? "";
     if (res.status === 200 && /^(?:text\/plain|text\/markdown|text\/x-(?:diff|patch))\b/i.test(type)) {
       const text = res.text().trim();
@@ -815,12 +818,17 @@ export async function extractFromUrl(url: string, subject: string, rules: PageRu
       const got = readable(res.text(), res.url, rules);
       if (got) read = { body: got, pageUrl: res.url };
     }
-  } catch {
-    // fall through to Jina
+  } catch (error) {
+    nativeError = error;
   }
   // Outside the page's read: a failure of the store while checking the cover is no unreadable page.
   if (read) return { ...read.body, cover: await articleCover(read.body.cover ?? null, url, read.pageUrl) };
   if (opts.paidFallback === false) return null;
+  if (!credential("collectors", "JINA_API_KEY")) {
+    // Rendering is optional; a failed native request still needs the worker's normal retry.
+    if (nativeError && !(nativeError instanceof UnavailablePageError)) throw nativeError;
+    return null;
+  }
   try {
     // The rendered text carries none of the page's metadata, so a body read this way has no cover.
     const extra = (DEPLOYMENT as { renderedArticleRemoveSelectors?: Record<string, string> }).renderedArticleRemoveSelectors?.[target.hostname];

@@ -39,6 +39,14 @@ const pages: Record<string, () => string> = {
   // A list API that gives wall-clock times without a zone, and a page whose metadata does too.
   "/zoneless.json": () => JSON.stringify({ result: [{ id: "a", title: "采购公告", publishDate: "2026-09-30 17:43:58" }, { id: "b", title: "Zoned", publishDate: "2026-09-30T17:43:58Z" }, { id: "c", title: "Abbreviated zone", publishDate: "Wed, 30 Sep 2026 17:43:58 EST" }] }),
   "/zoneless-post": () => `<html><head><meta property="article:published_time" content="2026-09-30 17:43:58"></head><body><p>Post</p></body></html>`,
+  "/typed-dates": () => '<html><body><span data-article-publish-time="1793009118"></span><time>04-11-2026</time><i>31-02-2026</i><b>06.11.2026</b></body></html>',
+  "/split-date": () => '<div class="ldate"><p>2026</p>\n<p>05/19</p>\n<p>08:05</p><script>counter(123)</script><p>来源 无锡日报 分享</p></div><div class="related"><p>other post 2025</p><p>05/19</p><p>08:05</p></div>',
+  "/json5-news": () => "var newsData = [/* bracket ] and quotes ' */ { title: '微短剧行业报告', url: 'https://example.org/a', }, // ]\n {title:'短剧合作动态',url:'https://example.org/b'}]; globalThis.newsDataExecuted = true;",
+  "/not-data-news": () => 'var newsData = [{ title: (() => { globalThis.newsDataExecuted = true; return "short drama"; })(), url: "https://example.org/a" }];',
+  "/paperindex.htm": () => '<META HTTP-EQUIV="REFRESH" CONTENT="0; URL=html/2026-11/13/node_1.htm?v=1">',
+  "/html/2026-11/13/node_1.htm?v=1": () => '<a href="content_123.htm">短剧产业观察</a>',
+  "/paper-loop": () => '<meta http-equiv="refresh" content="0; url=/paper-loop">',
+  "/paper-external": () => '<meta http-equiv="refresh" content="0; url=https://example.com/paper">',
   // A Next.js page whose embedded posts hold arrays and brackets of their own.
   "/flight": () => `<html><body><script>self.__next_f.push([1,${JSON.stringify(`5:["$","div",null,{"children":[],"posts":${JSON.stringify([
     { slug: "first", title: "First [draft] post", categories: ["sglang", "news"] }, { slug: "second", title: "Second post", meta: { tags: [["a"]] } },
@@ -52,6 +60,7 @@ const pages: Record<string, () => string> = {
   // A site that negotiates its language: the article at /en/post, its translation at /zh/post.
   "/en/blog": () => `<a class="row" href="/en/post"><p>Improved token efficiency</p><time>Sep 23, 2026</time></a>`,
   "/en/post": () => article("Improved token efficiency", "Agents now finish longer runs with fewer tokens. ".repeat(8)),
+  "/missing-body": () => `<html><head><title>短剧合作新计划</title></head><div class="content"><h1>短剧合作新计划</h1><p>${"平台发布短剧合作新计划，为制作机构提供版权资源、创作支持和分账激励。".repeat(24)}</p></div></body></html>`,
   "/zh/post": () => article("提升 token 效率", "智能体现在能用更少的 token 完成更长的运行。".repeat(12)),
   "/en/feed.xml": () => `<rss version="2.0"><channel><item><title>Improved token efficiency</title><link>${site}/en/post</link><pubDate>Wed, 23 Sep 2026 12:00:00 GMT</pubDate></item></channel></rss>`,
   // liquid.ai/blog/lfm3 was 8.7 MB: the framework inlines the whole page payload again as script.
@@ -65,6 +74,37 @@ function article(title: string, text: string) {
 const languages: Array<{ path: string; language: string | undefined }> = [];
 const server = http.createServer((req, res) => {
   const path = req.url ?? "";
+  if (path === "/negotiated-list") {
+    const html = '<a href="/news/one">短剧产业政策发布</a>';
+    const wantsJson = req.headers.accept?.includes("application/json");
+    res.writeHead(200, { "content-type": wantsJson ? "application/json" : "text/html" });
+    return res.end(wantsJson ? JSON.stringify(html) : html);
+  }
+  if (path === "/lmtw-home") {
+    res.writeHead(200, { "content-type": "text/html", "set-cookie": "public_news_session=test-session; Path=/; HttpOnly" });
+    return res.end('var tab_id = "1281"; var keyword_id = "29402"; var keyword_name = "0";');
+  }
+  if (path === "/mzw/content/ajaxGetNewsList") {
+    let body = "";
+    req.on("data", chunk => { body += chunk; });
+    req.on("end", () => {
+      const fields = new URLSearchParams(body);
+      const ok = req.method === "POST" && req.headers.cookie === "public_news_session=test-session" && req.headers["x-requested-with"] === "XMLHttpRequest" && fields.get("keyword_id") === "29402" && fields.get("tab_id") === "1281";
+      res.writeHead(ok ? 200 : 400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ code: 1, data: { html: '<div class="news-item"><a class="news-tit" href="/news/one">微短剧行业消息</a><time>2026-11-13</time></div>' } }));
+    });
+    return;
+  }
+  if (path === "/xinwanr-list" || path === "/bianews-list") {
+    let body = "";
+    req.on("data", chunk => { body += chunk; });
+    req.on("end", () => {
+      const ok = req.method === "POST" && req.headers["content-type"] === "application/x-www-form-urlencoded" && body === `page_no=1&page_size=${path === "/bianews-list" ? 20 : 50}`;
+      res.writeHead(ok ? 200 : 400, { "content-type": "text/html" });
+      res.end('<li class="js_news_item" id="71122"><a class="title">短剧合作消息</a></li>');
+    });
+    return;
+  }
   languages.push({ path, language: req.headers["accept-language"] });
   if (path === "/en/post" && /^zh/.test(req.headers["accept-language"] ?? "")) {
     res.writeHead(307, { location: "/zh/post" });
@@ -234,6 +274,90 @@ test("noise words match whatever their case", () => {
   assert.equal(noiseFiltered(c("Manus：正组建团队开发面向国内市场的产品", "与笔记本厂商合作的 Agent 产品"), source), false);
   assert.equal(noiseFiltered(c("新款笔记本开售", "首发价 4999 元"), source), true);
   assert.equal(noiseFiltered(c("iPhone 18 开售", ""), source), true);
+});
+
+test("a broad source can require an industry keyword before noise exemptions", () => {
+  const s = source({ ingestNoiseFilter: { requireMarkers: ["短剧", "microdrama"], keepIfMatches: ["agent"] } });
+  const c = (title: string, excerpt = "") => ({ url: "https://example.org/a", title, excerpt }) as never;
+  assert.equal(noiseFiltered(c("平台发布MicroDrama合作计划"), s), false);
+  assert.equal(noiseFiltered(c("平台新计划", "支持短剧创作者"), s), false);
+  assert.equal(noiseFiltered(c("New Agent launch"), s), true);
+  assert.equal(noiseFiltered({ url: "https://example.org/a", title: "New platform launch", bodyText: "Short-form MicroDrama programme" } as never, s), false);
+  assert.equal(noiseFiltered(c("New Agent launch"), source({})), false);
+  for (const requireMarkers of [[""], [123], "短剧", null]) {
+    assert.deepEqual(unsupportedConfig("web_list", { ingestNoiseFilter: { requireMarkers } }), ["ingestNoiseFilter.requireMarkers"]);
+  }
+});
+
+test("HTML cards can expose links in data attributes and Xinwanr IDs", () => {
+  const markup = '<li data-link="/article/12"><h3>短剧合作消息</h3></li><li data-link="javascript:alert(1)"><h3>Invalid destination</h3></li>';
+  const cards = fromHtml(markup, 'https://example.org/news', source({ itemSelector: 'li', linkSelector: 'li', linkAttribute: 'data-link', titleSelector: 'h3' }));
+  assert.deepEqual(cards.map(c => c.url), ['https://example.org/article/12']);
+  for (const linkAttribute of [{ 'data-link': '/a' }, '', null]) {
+    assert.deepEqual(unsupportedConfig('web_list', { linkAttribute }), ['linkAttribute']);
+  }
+  const ids = fromHtml('<li id="71122"><a class="title">短剧版权合作</a></li><li id="not-an-id"><a class="title">Bad ID</a></li>', 'https://www.xinwanr.com/news_list_index', source({ adapter: 'xinwanr_news', itemSelector: 'li', titleSelector: '.title' }));
+  assert.deepEqual(ids.map(c => [c.title, c.url]), [['短剧版权合作', 'https://www.xinwanr.com/news/details?id=71122']]);
+});
+
+test("a public JavaScript news array is parsed as JSON5 data without executing scripts", async () => {
+  const cfg = { mode: 'html_window_var', windowVar: 'newsData', titlePaths: ['title'], urlTemplate: '{raw:url}' };
+  const items = await fetchJsonList(source({ ...cfg, url: `${site}/json5-news` }));
+  assert.deepEqual(items.map(c => c.url), ['https://example.org/a', 'https://example.org/b']);
+  assert.equal((globalThis as Record<string, unknown>).newsDataExecuted, undefined);
+  await assert.rejects(fetchJsonList(source({ ...cfg, url: `${site}/not-data-news` })));
+  assert.equal((globalThis as Record<string, unknown>).newsDataExecuted, undefined);
+});
+
+test("Xinwanr listing posts the public form and emits article links", async () => {
+  const items = await fetchWebList(source({ url: `${site}/xinwanr-list`, adapter: "xinwanr_news", itemSelector: "li.js_news_item", titleSelector: "a.title" }));
+  assert.deepEqual(items.map(c => [c.title,c.url]), [["短剧合作消息", `${site}/news/details?id=71122`]]);
+});
+
+test("Bianews uses its public POST list and numeric card IDs", async () => {
+  const items = await fetchWebList(source({ url: `${site}/bianews-list`, adapter: "bianews_news", itemSelector: "li.js_news_item", titleSelector: "a.title" }));
+  assert.equal(items[0]?.url, `${site}/news/details?id=71122`);
+});
+
+test("HTML listings negotiate an HTML document rather than a JSON string", async () => {
+  const items = await fetchWebList(source({ url: `${site}/negotiated-list` }));
+  assert.equal(items[0]?.url, `${site}/news/one`);
+});
+
+test("an article with an omitted opening body tag still has a readable body", async () => {
+  const body = await extractFromUrl(`${site}/missing-body`, "missing-body", {}, { paidFallback: false });
+  assert.ok(body && body.text.includes("平台发布短剧合作新计划") && body.text.length >= 500);
+});
+
+test("an electronic newspaper's permanent meta refresh resolves same-origin issue links", async () => {
+  const items = await fetchWebList(source({ url: `${site}/paperindex.htm` }));
+  assert.equal(items[0]?.url, `${site}/html/2026-11/13/content_123.htm`);
+  for (const path of ["/paper-loop", "/paper-external"]) {
+    await assert.rejects(fetchWebList(source({ url: site + path })), /same-origin limit/);
+  }
+});
+
+test("LMTW reads the current public listing through its fresh anonymous session", async () => {
+  const items = await fetchWebList(source({ url: `${site}/lmtw-home`, adapter: "lmtw_news", itemSelector: ".news-item", linkSelector: "a.news-tit", publishedAtSelector: "time" }));
+  assert.equal(items.length, 1);
+  assert.equal(items[0]?.url, `${site}/news/one`);
+  assert.ok(items[0]?.publishedAt);
+});
+
+test("a detail date unit is explicit: epoch seconds and day-month-year preserve publication dates", async () => {
+  const date = async (publishedAtRegex: string, publishedAtUnit: string) => (await fetchDetail(`${site}/typed-dates`, source({ detail: { publishedAtRegex, publishedAtUnit, publishedAtAuthoritative: true } }), { date: true, title: false, summary: false })).publishedAt;
+  assert.equal((await date('data-article-publish-time="(\\d+)"', 'epoch_s'))?.getTime(), 1793009118000);
+  assert.equal((await date('<time>([^<]+)</time>', 'dmy'))?.toISOString(), '2026-11-03T16:00:00.000Z');
+  assert.equal(await date('<i>([^<]+)</i>', 'dmy'), null);
+  assert.equal((await date('<b>([^<]+)</b>', 'dmy'))?.toISOString(), '2026-11-05T16:00:00.000Z');
+  assert.deepEqual(unsupportedConfig('web_list', { detail: { publishedAtUnit: 'guess' } }), ['detail.publishedAtUnit']);
+  assert.deepEqual(unsupportedConfig('web_list', { detail: { publishedAtUnit: 'epoch_s' } }), ['detail.publishedAtUnit']);
+});
+
+test("a publication date node can put its year and month/day on separate lines", async () => {
+  const date = async (publishedAtSelector: string) => (await fetchDetail(`${site}/split-date`, source({ detail: { publishedAtSelector, publishedAtAuthoritative: true } }), { date: true, title: false, summary: false })).publishedAt;
+  assert.equal((await date('.ldate'))?.toISOString(), '2026-05-19T00:05:00.000Z');
+  assert.equal(await date('.related'), null);
 });
 
 test("a time without a zone is read in the source's offset, in JSON lists and in detail page metadata", async () => {

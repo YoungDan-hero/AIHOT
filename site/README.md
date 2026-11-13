@@ -1,13 +1,14 @@
-# 站点
+# 短剧前线站点配置
 
-这个站自己的东西：名字、文案、品牌、页面，以及启用哪些模块。步骤见 [把它改成你的行业](../docs/customize.md)。
+本站名字为“短剧前线”，国内与海外短剧采用相同的事实和从业价值标准。行业分类由 `industry/taxonomy.ts` 提供；站点不按地域强制填满固定数量的资讯。
 
 | 文件 | 内容 |
 |---|---|
-| `site.ts` | 站名、行业词、出刊时间、首页和关于页文案、分享图文字、条目与日报周报月报上的说法、公开接口的分类、备案号 |
-| `models.ts` | 具名的模型和每一步默认用哪个（没写的步骤用 `.env` 里配的那一个） |
-| `brand/` | 图标、Logo（`Logo.tsx`）、分享图和海报上的字标（`wordmark.svg`、`wordmark-dark.svg`，可选）、日报周报月报的报头字（`nameplates/`）、关于页的二维码（`contact/`，可选） |
-| `pages/` | 使用规则、隐私说明（模板，上线前按实际情况改写） |
-| `public/` | 发布在网站根目录的固定文件（站名、地址等占位符替换后发布）：`robots.txt`、`manifest.webmanifest`、`openapi-v1.json`，以及可选的 `.well-known/security.txt` |
-| `changelog.json` | 更新日志 |
-| `modules/` | 启用哪些模块：`index.ts`、`server.ts`、`web.ts` 三份清单，列出仓库根目录 `modules/<名字>/` 里要用的模块，默认都为空，见 [架构](../docs/architecture.md#模块) 的“模块” |
+| `site.ts` | 站名、短剧行业文案、出刊时间、SEO、公开分类与域名抓取间隔 |
+| `models.ts` | 后端模型配置；真实密钥从部署环境读取 |
+| `brand/` | 本站图标、文字 Logo、短剧日报周报月报报头 |
+| `pages/` | 上线前待运营方核实的使用规则与隐私说明模板 |
+| `public/` | 站名、域名等占位符替换后发布的固定文件 |
+| `changelog.json` | 当前站点配置的更新说明 |
+
+运行和检查见 [`docs/short-drama.md`](../docs/short-drama.md)，通用部署方式见 [`docs/deploy.md`](../docs/deploy.md)。域名和运营者信息保持待配置状态，不能把示例值视为真实上线信息。

@@ -10,17 +10,17 @@
 
 `itemType` 必须七选一：
 
-- `model_release`：新模型或大版本更新
-- `product_launch`：新产品、工具或重大功能更新
-- `tool_or_prompt`：可直接复用的方法、Prompt、Skill 或技巧
-- `research_paper`：论文、研究或技术报告
+- `drama_release`：具体短剧作品或项目的开发、立项、制作、发行或上线变化
+- `platform_update`：短剧平台、创作或发行服务的规则、产品、价格、能力或入口变化
+- `production_method`：可复用的编剧、拍摄、剪辑、AI制作、本土化、发行或运营方法
+- `industry_report`：有统计范围、周期和来源的行业研究、报告或榜单
 - `industry_event`：融资、收购、监管、诉讼、商业动作或人事
 - `opinion_analysis`：观点、行业判断、复盘或长访谈
 - `tutorial_explainer`：教程、科普、解读或评测
 
-优先级：发了模型选 model_release；发了工具选 product_launch；发了 Prompt 或方法选 tool_or_prompt；论文优先 research_paper；评测选 tutorial_explainer。原文把发布写成过去的事、本条在讲用法或做演示时，不算本次发布，选 tutorial_explainer。
+具体剧目或项目变化选drama_release，平台规则或功能变化选platform_update，可复用生产经营方法选production_method，系统性数据报告选industry_report。监管与商业动作选industry_event，观点分析选opinion_analysis，规则解读或教学选tutorial_explainer。回顾既有上线、本条在讲方法时，不算新的上线。国内与海外、真人与AI制作不改变内容类型判断。
 
-输出前检查 `itemType` 与第一个分类标签是否自洽：`model_release` 对应“模型发布”，`product_launch` 对应“产品更新”，`research_paper` 对应“论文/研究”，`industry_event` 对应“行业动态”或“政策/监管”，`opinion_analysis` 对应“大佬观点”或“现象/趋势”，`tutorial_explainer` 对应“教程/实践”或“评测/基准”。如果二者冲突，按当前材料的核心事件修正后再输出。
+输出前检查itemType与首标签自洽：drama_release对应“剧目动态”，platform_update对应“平台更新”，production_method对应“制作/技术”，industry_report对应“数据/报告”，industry_event对应“行业动态”“政策/监管”或“商业合作”，opinion_analysis对应“观点/分析”，tutorial_explainer对应“教程/实践”。冲突时按材料核心信息修正。
 
 ## 作者角色
 
@@ -32,14 +32,14 @@
 
 ## 标签
 
-`tags` 输出 1–6 个字符串。第一个必须从以下分类标签中选一个：模型发布、产品更新、开源/仓库、论文/研究、教程/实践、大佬观点、评测/基准、安全/对齐、现象/趋势、行业动态、政策/监管、非AI/通用工具、其他。
+`tags` 输出 1–6 个字符串。第一个必须从以下分类标签中选一个：剧目动态、平台更新、制作/技术、数据/报告、行业动态、政策/监管、商业合作、观点/分析、教程/实践、其他。
 
 其后可选 0–5 个适用标签，并且只能来自以下两个白名单：
 
-- 主题：Agent、编码、推理、多模态、语音、视频、图像生成、RAG、端侧、数据/训练、搜索、部署/工程、开源生态、具身智能、MCP/工具调用
-- 实体：OpenAI、Anthropic、DeepSeek、DeepMind、Google、Meta、Microsoft、xAI、Hugging Face、GitHub、arXiv
+- 主题：国内市场、海外市场、真人短剧、AI漫剧、AI短剧、竖屏短剧、横屏短剧、免费短剧、付费短剧、IP改编、发行/出海、投流/营销、版权/合规、制作/编剧、海外本土化、品牌短剧
+- 实体：红果短剧、抖音、快手、腾讯视频、优酷、爱奇艺、ReelShort、DramaBox、NetShort、ShortMax、GoodShort、Wattpad、国家广电总局、北京市广电局
 
-正文中即使明确出现了 NVIDIA、Apple、阿里等其他实体，也不要把它们放进 `tags`。不要创造白名单之外的标签。没有适用的主题或实体时，只返回第一个分类标签；例如学校限制 AI 使用的监管新闻，不需要强行归到“编码”或“推理”。
+不要创造白名单之外的标签，未列入的公司可在标题摘要中按原文写，不塞进tags。事件明确面向国内或海外时加相应市场标签；跨市场内容可同时加两者。仅按原文标注作品与生产方式，真人短剧使用AI配音不自动标成AI漫剧。
 
 ## 候选阅读价值
 
@@ -51,12 +51,12 @@
 
 ## 中文标题和摘要
 
-`titleZh` 必须是自洽的中文标题，包含事件主体以及动作或结果。保留必要的模型名、产品名、版本号、机构名和关键数字，不写“最新动态”“引发关注”等空话。原标题已经是中文时也要保证脱离来源名后仍能独立理解。
+`titleZh` 必须是自洽的中文标题，包含事件主体以及动作或结果。保留必要的剧名、平台、机构、项目与关键数字，不写“最新动态”“引发关注”等空话。原标题已经是中文时也要保证脱离来源名后仍能独立理解。
 
-`summaryZh` 必须忠实使用当前材料。短 X 推文完整翻译作者自己的主推文；长推文或文章先写核心事实，再写一层关键细节或影响。保留关键数字、版本、机构、模型和 URL；引用内容只作上下文，不冒充主推作者自己的话。
+`summaryZh` 必须忠实使用当前材料。短 X 推文完整翻译作者自己的主推文；长推文或文章先写核心事实，再写一层关键细节或影响。保留关键数字、统计周期、市场、机构、作品、阶段和URL；引用内容只作上下文，不冒充主推作者自己的话。
 
 图片只能补充清晰可见、与正文直接相关的事实。忽略头像、品牌图、装饰图、模糊内容和与正文重复的信息。不得仅凭图片猜测人物身份、地点、时间、因果、性能或产品能力；图文冲突时不得擅自裁决。
 
 只返回合法 JSON，不要 Markdown，不要解释。顶层必须且只能包含以下六个字段：
 
-{"itemType":"product_launch","authorRole":"principal","tags":["产品更新","Agent"],"editorialJudgment":"原文给出了能力变化和开放入口，读者可以据此判断它会怎样改变现有工作流。","titleZh":"某产品发布智能体功能","summaryZh":"某产品发布新的智能体功能，给出了开放入口和主要能力变化。"}
+{"itemType":"platform_update","authorRole":"principal","tags":["平台更新","海外市场"],"editorialJudgment":"公告列出了新规则的适用市场和生效时间，为发行方调整项目安排提供了具体依据。","titleZh":"某短剧平台公布新的发行规则","summaryZh":"某短剧平台公布新的发行规则，列出适用市场、生效时间与申请条件。"}

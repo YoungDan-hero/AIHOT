@@ -87,6 +87,9 @@ export function FeedBar({ base, category, channel }: { base: "/" | "/all"; categ
         }
       />
       <FilterSheet open={sheet} onClose={() => setSheet(false)} base={base} active={filterKey(category, channel)} />
+      <div className="overflow-x-auto pb-3 lg:hidden">
+        <CategoryTabs base={base} category={category} channel={channel} layoutId="feed-cat-phone" className="w-max" />
+      </div>
     </>
   );
 }

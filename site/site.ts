@@ -20,30 +20,30 @@ export const EDITION_WHEN = {
 
 export const SITE = {
   /** 站名：导航、页面标题、分享图、RSS、MCP、后台都用它。 */
-  name: "MyHOT",
+  name: "短剧前线",
   /**
-   * 行业词：拼进默认说法里，比如“AI 日报”“AI 动态”。
-   * 改成“法律”“HR”“黄金”之类，页面上就会变成“法律日报”“法律动态”。
+   * 行业词：拼进默认说法里，比如“短剧日报”“短剧动态”。
+   * 改成其他行业词，页面上的行业名称随之变化。
    */
-  subject: "AI",
+  subject: "短剧",
   /** 首页的完整标题（浏览器标签、搜索结果）。 */
-  homeTitle: "MyHOT — AI 行业动态 · 每日精选与日报",
+  homeTitle: "短剧前线 — 国内与海外短剧资讯 · 热点与日报",
   /** 主题目录页（/topics）的标题。 */
-  topicsTitle: "AI 主题：公司与模型、技术方向、内容形态的最新动态",
+  topicsTitle: "短剧主题：国内与海外、平台与公司、制作与商业的最新动态",
   /** 反馈表单输入框里的示例。 */
-  feedbackExample: "例如：我在搜索某个关键词时遇到……我原本想……",
+  feedbackExample: "例如：这条短剧资讯的日期或来源有误；希望增加某个平台、市场或信源……",
   /** 反馈页标题下面的一句话。 */
   feedbackLead: "发现 bug、想要的功能、看不顺眼的地方，都可以告诉我们。",
   /** 反馈表单邮箱框里的提示。 */
   feedbackEmailHint: "留下邮箱，我们可以回信联系你",
   /** 一句话介绍：搜索引擎、分享卡片、RSS、llms.txt 会用。 */
-  description: `从一批 AI 信源里挑出值得看的动态，把同一件事的多篇报道归到一起，${EDITION_WHEN.daily} 出一份日报。`,
+  description: `以国内短剧市场为主，兼顾海外动态，追踪平台、制作、政策与商业动态，汇总原文来源，${EDITION_WHEN.daily} 出一份中文日报。`,
   /** llms.txt 里一句话介绍下面的一段详细介绍（选填）。 */
-  llmsIntro: null as string | null,
+  llmsIntro: "短剧前线聚合国内与海外公开资讯，以同一套事实和从业价值标准筛选真人短剧、AI漫剧与竖屏微短剧消息，提供中文摘要、事件归组和日报。热点反映所接入信源的报道关注度。" as string | null,
   /** 一行小字：分享图、海报下方。 */
-  tagline: "值得关注的 AI 动态",
+  tagline: "国内短剧为主，兼顾出海与海外动态",
   /** 搜索引擎读到的关键词（首页结构化数据）。 */
-  keywords: ["AI 资讯", "AI 新闻", "AI 日报", "AI 行业动态"] as string[],
+  keywords: ["短剧资讯", "微短剧", "海外短剧", "短剧出海", "短剧日报", "竖屏短剧", "AI漫剧"] as string[],
   /**
    * 搜索引擎站长平台的网站验证（选填）：meta 名 → 平台给的验证码，放在首页的 head 里。
    * 比如 "baidu-site-verification": "codeva-…"、"msvalidate.01": "…"。验证通过后也要留着，平台会定期复查。
@@ -58,10 +58,10 @@ export const SITE = {
   /** 标准图标（favicon.ico、icon.png、icon-192.png、apple-icon.png、logo.svg）以外也放在网站根目录的图标，site/brand/ 里的文件名（选填）；manifest.webmanifest 或外站引用了它们时用。 */
   rootIcons: [] as string[],
   /**
-   * MCP 工具名的前缀（小写字母、数字、下划线），工具会叫 myhot_get_latest、myhot_search……
+   * MCP 工具名的前缀（小写字母、数字、下划线），工具会叫 duanju_frontline_get_latest、duanju_frontline_search……
    * 已经有人接入后就不要再改。
    */
-  mcpPrefix: "myhot",
+  mcpPrefix: "duanju_frontline",
   /**
    * 公开接口（MCP、OpenAPI、llms.txt）的版本号，只升不降。
    * 改了接口里已有的字段或含义时升主版本，并在部署说明里写清。
@@ -70,7 +70,7 @@ export const SITE = {
   /** 对外联系邮箱（选填）：llms.txt 和给 Agent 的使用说明里会写。 */
   contactEmail: null as string | null,
   /** 关于页底部的一行小字（选填）。 */
-  footerNote: "由 AIHOT 开源框架驱动",
+  footerNote: "国内短剧为主，兼顾出海与海外资讯。",
   /** 中国大陆网站的 ICP 备案号（选填），填了就显示在侧栏底部和“我的”页底部，并链接到工信部备案系统。 */
   icp: null as string | null,
   /** 中国大陆网站的公安备案信息（选填），填了显示在侧栏底部和“我的”页底部。 */
@@ -78,15 +78,15 @@ export const SITE = {
   /** 源码的 GitHub 仓库地址（选填），填了就在侧栏底部和“我的”页底部显示“GitHub 开源”。 */
   github: null as string | null,
   /** 页脚的“由 X 驱动”（选填）：填了就在侧栏底部和“我的”页底部显示，链到它的网址。默认链回上游 AIHOT，不想要就写 null。 */
-  poweredBy: { name: "AIHOT", url: "https://aihot.news" } as { name: string; url: string } | null,
+  poweredBy: null as { name: string; url: string } | null,
   /** 结构化数据里的网站运营者（搜索引擎用）。 */
   organization: {
-    name: "MyHOT",
+    name: "短剧前线",
     /** 创始人（选填）。 */
     founder: null as Founder | null,
   },
   /** 抓取信源时报上的名字和版本（User-Agent 里用），不要冒用别的站。 */
-  crawlerName: "MyHOTBot/1.0",
+  crawlerName: "DuanjuFrontlineBot/1.0",
 } as const;
 
 /** 使用规则和隐私说明两页（正文在 pages/ 里）。 */
@@ -154,15 +154,15 @@ export const ABOUT = {
   /** 页面描述（搜索结果、分享卡片）。 */
   description: `关于 ${SITE.name}：${SITE.description}`,
   /** 大标题：第一行正常颜色，第二行强调色。 */
-  headline: ["AI 圈每天都有新动静，", "值得看的，只有几条。"] as [string, string],
+  headline: ["看国内，也看海外。", "把短剧行业的新变化看清。"] as [string, string],
   /** 标题下面的一段话。{sources} 会换成实时的信源数（两边自动加空格，所以 {sources} 两边不写空格）；统计没取到时换成 sourcesFallback。 */
-  lead: `${SITE.name} 替你盯着{sources}个信源：抓取、归并、打分、精选，${EDITION_WHEN.daily} 出一份日报。免费，不用注册。`,
-  sourcesFallback: "十几",
+  lead: `${SITE.name} 追踪{sources}个公开信源，国内与海外采用同一套价值标准：归并报道、整理中文摘要，${EDITION_WHEN.daily} 出一份日报，无需注册。`,
+  sourcesFallback: "8",
   /** 信源河动画下面的四个环节。 */
   steps: {
-    collect: "官方博客、媒体和个人的订阅源都在看；更新越勤的源看得越勤，最快 15 分钟看一次。",
-    store: "抓到的都存下来，同一件事的报道归到一起，热点榜就是从这里算出来的。",
-    select: `模型先看是不是这个行业的事、有没有实际信息，再写中文标题、摘要和${ITEM_COPY.reasonLabel}；营销稿和重复转发进不来。`,
+    collect: "从国内与海外的专业媒体、商业媒体和官方发布收集资讯，按信源更新节奏与访问要求检查。",
+    store: "保留来源和发布时间，把同一件事的多篇报道归到一起；热点反映所接入信源的报道关注度。",
+    select: `先判断是否属于短剧行业，再按事实、时效与从业价值筛选，整理中文标题、摘要和${ITEM_COPY.reasonLabel}，压低广告与重复内容。`,
     publish: `${EDITION_WHEN.daily} 出日报，${EDITION_WHEN.weekly} 出周报，${EDITION_WHEN.monthly} 出月报。`,
   },
   /**
@@ -196,7 +196,7 @@ export const ADMIN = {
 /** Agent 接入页的示例。 */
 export const AGENT = {
   /** MCP 工具表里“搜索”一行：能搜什么、可以怎么问。 */
-  search: { scope: "按公司、产品、人物或话题搜最近 7 天", ask: "这家公司最近发了什么？" },
+  search: { scope: "按短剧平台、公司、市场或话题搜最近 7 天", ask: "国内和海外短剧市场最近有哪些重要变化？" },
 };
 
 /** 日报、周报、月报版面上的说法。 */
@@ -212,7 +212,7 @@ export const REPORTS = {
     monthly: subjectAfter("每月", "行业盘点"),
   },
   /**
-   * 一期里的一条怎么称呼（“4 件大事”）：没有头条时的标题（“这一天的 4 件 AI 大事”）、报头和往期目录的条数、
+   * 一期里的一条怎么称呼（“4 件大事”）：没有头条时的标题（“这一天的 4 件短剧大事”）、报头和往期目录的条数、
    * 周报月报没有总述时的那句话，以及订阅说明里的“按栏目分好的大事”都用它。
    */
   entry: { measure: "件", noun: "大事" },
@@ -221,7 +221,7 @@ export const REPORTS = {
   /** 报告分享图上“共几条”的说法。 */
   shareUnit: "件大事",
   /** 日报时段内有资料经过评判、但没有新大事时的标题与导语。 */
-  quiet: { title: "今日安静，无大事发生", paragraph: `${subjectAfter("北京时间 {start} 至 {end}，没有新的", "大事")}。` },
+  quiet: { title: "本期暂无新增精选", paragraph: "北京时间 {start} 至 {end}，已接入信源中暂无符合本期标准的新增短剧资讯。" },
 };
 
 /** 运维告警（只发给站长）里随部署而变的几处说法。 */
@@ -254,8 +254,8 @@ export const COMMUNITY_FEEDS: { dev: string[]; hn: string[] } = {
 /** 各页分享图（/og/pages/*.png）上的文字。主题目录页的那张按主题数自动生成。 */
 export const CARDS: Record<string, { kicker: string; title: string; subtitle: string; accent?: "hot" | "amber" }> = {
   site: { kicker: subjectAfter("每日", "精选"), title: SITE.tagline, subtitle: SITE.description },
-  all: { kicker: subjectAfter("全部", "动态"), title: "所有信源的最新动态，一站看完", subtitle: "按时间汇总各信源的最新动态，可按类别与标签筛选。" },
-  hot: { kicker: "热点榜", title: "过去 48 小时，大家在讨论什么", subtitle: "热度指数、趋势与组成热度的公开来源。", accent: "hot" },
+  all: { kicker: subjectAfter("全部", "动态"), title: "国内与海外短剧动态，一站阅读", subtitle: "按时间汇总，国内动态与海外动态并列筛选，跨市场报道单独归类。" },
+  hot: { kicker: "热点榜", title: "过去 48 小时，短剧行业在关注什么", subtitle: "按公开信源报道关注度排列，可查看趋势与来源。", accent: "hot" },
   daily: { kicker: withSubject("日报"), title: subjectAfter(`每天 ${spokenTime(EDITION_TIMES.daily)}，一份读得完的`, "日报"), subtitle: `${subjectAfter("前一天值得关注的", "动态")}。` },
   weekly: { kicker: withSubject("周报"), title: `一周${REPORTS.entry.noun}，一次看清`, subtitle: "本周的主线、重要发布与值得回看的讨论。" },
   monthly: { kicker: withSubject("月报"), title: "一个月的变化", subtitle: "月度主线与关键事件回顾。" },
@@ -297,6 +297,194 @@ export const DEPLOYMENT = {
    * 每次重定向重新按目标域名选路，直连仍检查实际连接地址。
    */
   directFetchHosts: [] as string[],
+  /** 同域公开采集请求的起点间隔；API 与 worker 共用数据库节流，裸域与 www 使用同一桶。 */
+  publicFetchIntervalsMs: {
+    "21jingji.com": 2000,
+    "36kr.com": 2000,
+    "3elife.net": 2000,
+    "66wz.com": 2000,
+    "adexchanger.com": 2000,
+    "adquan.com": 2000,
+    "advanced-television.com": 2000,
+    "afaqs.com": 2000,
+    "api.thepaper.cn": 2000,
+    "api3.cls.cn": 2000,
+    "appfigures.com": 2000,
+    "awtmt.com": 2000,
+    "baijing.cn": 2000,
+    "bbtnews.com.cn": 2000,
+    "bianews.com": 2000,
+    "bjnews.com.cn": 2000,
+    "blog.youtube": 2000,
+    "c21media.net": 2000,
+    "cac.gov.cn": 2000,
+    "caixin.com": 2000,
+    "cbbpa.org.cn": 2000,
+    "cbtb.quanzhou.gov.cn": 2000,
+    "ce.cn": 2000,
+    "channelnewsasia.com": 2000,
+    "chinafilmnews.cn": 2000,
+    "chinawriter.com.cn": 2000,
+    "chinaxwcb.com": 2000,
+    "ciwen.com.cn": 2000,
+    "cnews.chinadaily.com.cn": 2000,
+    "cnnb.com.cn": 2000,
+    "cnnic.cn": 2000,
+    "cnsa.cn": 2000,
+    "col.com": 2000,
+    "comm.ecnu.edu.cn": 2000,
+    "company.wattpad.com": 2000,
+    "contentasia.tv": 2000,
+    "court.gov.cn": 2000,
+    "crazymaplestudios.com": 2000,
+    "csm.com.cn": 2000,
+    "cssn.cn": 2000,
+    "ct.ah.gov.cn": 2000,
+    "ctaa.org.cn": 2000,
+    "ctpia.com.cn": 2000,
+    "cuc.edu.cn": 2000,
+    "culture.opg.cn": 2000,
+    "cusx.edu.cn": 2000,
+    "cyzone.cn": 2000,
+    "dahe.cn": 2000,
+    "digiday.com": 2000,
+    "donews.com": 2000,
+    "duanju007.com": 2000,
+    "dwdl.de": 2000,
+    "e.gmw.cn": 2000,
+    "engadget.com": 2000,
+    "ent.people.com.cn": 2000,
+    "entrackr.com": 2000,
+    "fangirlish.com": 2000,
+    "foshannews.net": 2000,
+    "fun.youth.cn": 2000,
+    "gbdsj.cq.gov.cn": 2000,
+    "gbdsj.gd.gov.cn": 2000,
+    "gbdsj.guizhou.gov.cn": 2000,
+    "gbdsj.hunan.gov.cn": 2000,
+    "gd.henan.gov.cn": 2000,
+    "gd.shandong.gov.cn": 2000,
+    "gdj.beijing.gov.cn": 2000,
+    "gdj.fujian.gov.cn": 2000,
+    "gdj.hubei.gov.cn": 2000,
+    "gdj.ln.gov.cn": 2000,
+    "gdj.nx.gov.cn": 2000,
+    "gdj.qinghai.gov.cn": 2000,
+    "gdj.sc.gov.cn": 2000,
+    "gdj.shaanxi.gov.cn": 2000,
+    "gdj.shanxi.gov.cn": 2000,
+    "gdj.xinjiang.gov.cn": 2000,
+    "gdj.xizang.gov.cn": 2000,
+    "geekpark.net": 2000,
+    "hangzhou.com.cn": 2000,
+    "hi-lp.cn": 2000,
+    "hindustantimes.com": 2000,
+    "hljgdj.hlj.gov.cn": 2000,
+    "holywater.tech": 2000,
+    "huacemedia.com": 2000,
+    "huxiu.com": 2000,
+    "ici.pku.edu.cn": 2000,
+    "ifanr.com": 2000,
+    "iimedia.cn": 2000,
+    "inc42.com": 2000,
+    "indianbroadcastingworld.com": 2000,
+    "indiantelevision.com": 2000,
+    "infzm.com": 2000,
+    "ithome.com": 2000,
+    "jhnews.com.cn": 2000,
+    "jiemian.com": 2000,
+    "jjckb.cn": 2000,
+    "jnwl.jinan.gov.cn": 2000,
+    "jsgd.jiangsu.gov.cn": 2000,
+    "juduanduan.com": 2000,
+    "koreatimes.co.kr": 2000,
+    "lanjinger.com": 2000,
+    "legaldaily.com.cn": 2000,
+    "lmtw.com": 2000,
+    "lwt.hainan.gov.cn": 2000,
+    "m.nfnews.com": 2000,
+    "m.sohu.com": 2000,
+    "marketing-interactive.com": 2000,
+    "marketingbrew.com": 2000,
+    "marketingdive.com": 5000,
+    "mct.gov.cn": 2000,
+    "mediabrief.com": 2000,
+    "mediacorp.sg": 2000,
+    "mediainfoline.com": 2000,
+    "medianews4u.com": 2000,
+    "nbd.com.cn": 2000,
+    "ncac.gov.cn": 2000,
+    "newrank.cn": 2000,
+    "news.cctv.com": 2000,
+    "news.chengdu.cn": 2000,
+    "news.cn": 2000,
+    "news.cuz.edu.cn": 2000,
+    "news.cyol.com": 2000,
+    "news.inewsweek.cn": 2000,
+    "nrta.gov.cn": 2000,
+    "ormaxmedia.com": 2000,
+    "pangjing.cn": 2000,
+    "pedaily.cn": 2000,
+    "prnewswire.com": 2000,
+    "qingdaonews.com": 2000,
+    "qzwb.com": 2000,
+    "redseer.com": 2000,
+    "report.iresearch.cn": 2000,
+    "rta.hebei.gov.cn": 2000,
+    "scftvc.com": 2000,
+    "scmc.edu.cn": 2000,
+    "sensortower.com": 2000,
+    "shortsreport.com": 2000,
+    "sjc.bnu.edu.cn": 2000,
+    "socialbeta.com": 2000,
+    "socialsamosa.com": 2000,
+    "sootoo.com": 2000,
+    "spp.gov.cn": 2000,
+    "sta.edu.cn": 2000,
+    "stcn.com": 2000,
+    "stdaily.com": 2000,
+    "streamingmedia.com": 2000,
+    "subaonet.com": 2000,
+    "techcrunch.com": 2000,
+    "televisionacademy.com": 2000,
+    "tfcaijing.com": 2000,
+    "theguardian.com": 2000,
+    "thepaper.cn": 2000,
+    "theverticaldaily.com": 2000,
+    "thewrap.com": 2000,
+    "tmtpost.com": 2000,
+    "tradeinservices.mofcom.gov.cn": 2000,
+    "tuanwei.nwu.edu.cn": 2000,
+    "tubefilter.com": 2000,
+    "tva.onscreenasia.com": 2000,
+    "verticaldrama.tv": 2000,
+    "verticalobserver.com": 2000,
+    "vibes.8world.com": 2000,
+    "videoweek.com": 2000,
+    "visionstar.cn": 2000,
+    "vpaa.us": 2000,
+    "welcon.kocca.kr": 2000,
+    "wgl.zhengzhou.gov.cn": 2000,
+    "wgltj.huizhou.gov.cn": 2000,
+    "whly.tj.gov.cn": 2000,
+    "whlyj.sh.gov.cn": 2000,
+    "whmc.edu.cn": 2000,
+    "wlgd.shenyang.gov.cn": 2000,
+    "wlj.xa.gov.cn": 2000,
+    "worldscreen.com": 2000,
+    "wtl.sz.gov.cn": 2000,
+    "wxrb.com": 2000,
+    "xiancn.com": 2000,
+    "xinwanr.com": 2000,
+    "xwxy.hunnu.edu.cn": 2000,
+    "yicai.com": 2000,
+    "yingshi.china.com.cn": 2000,
+    "ynsgbdsj.yn.gov.cn": 2000,
+    "youxichaguan.com": 2000,
+    "youxituoluo.com": 2000,
+    "zaobao.com.sg": 2000,
+    "zynews.cn": 2000
+  } as Partial<Record<string, number>>,
   /**
    * 精选评测（scripts/eval-selection.ts）不带参数时用的金标集：文件（相对仓库根目录）、抽样条数、只抽哪一份、门槛扫描范围。
    * null 就用 .data/gold.jsonl 的全部样本（最多 200 条），在 40–90 之间扫描。
@@ -317,15 +505,15 @@ export const FEED_COPY = {
  */
 export const PUBLIC_CATEGORIES = {
   merge: {},
-  feedLabels: {},
+  feedLabels: { domestic: "国内短剧动态", overseas: "海外短剧动态", industry: "短剧跨市场观察" },
 } as const;
 
-/** “AI 日报”这类说法：行业词和名词之间，英文词加空格，中文词不加。 */
+/** “短剧日报”这类说法：行业词和名词之间，英文词加空格，中文词不加。 */
 export function withSubject(noun: string): string {
   return /[A-Za-z0-9]$/.test(SITE.subject) ? `${SITE.subject} ${noun}` : `${SITE.subject}${noun}`;
 }
 
-/** “按主题看 AI”“往期 AI 日报”这类说法：行业词接在中文后面，英文词前加空格，中文词不加；noun 照 withSubject 接上。 */
+/** “按主题看短剧”“往期短剧日报”这类说法：行业词接在中文后面，英文词前加空格，中文词不加；noun 照 withSubject 接上。 */
 export function subjectAfter(text: string, noun?: string): string {
   const gap = /^[A-Za-z0-9]/.test(SITE.subject) ? " " : "";
   return `${text}${gap}${noun ? withSubject(noun) : SITE.subject}`;

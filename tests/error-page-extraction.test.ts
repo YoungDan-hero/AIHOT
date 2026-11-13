@@ -12,6 +12,8 @@ import { DEPLOYMENT } from "@aihot/site";
 import { closeDb, sql } from "@aihot/backend/db";
 import { extractArticleBody, extractFromUrl, isSignInRedirect, isSignInUrl, readable } from "@aihot/backend/content/extract";
 import { upsertMaterial } from "@aihot/backend/content/materials";
+import { analyzeArticle } from "@aihot/backend/editorial/analyze";
+import { HttpStatusError } from "@aihot/backend/lib/http-fetch";
 import { jinaRead } from "@aihot/backend/providers/jina";
 import { fetchDetail, fetchWebList } from "@aihot/backend/sources/web-list";
 
@@ -37,6 +39,9 @@ const server = http.createServer((req, res) => {
   // The redirect has to answer before the default headers: a source URL the site sends to its sign-in form.
   if (req.url === "/redirect") { res.writeHead(302, { location: "/login" }); return void res.end(); }
   if (req.url === "/brand/register") { res.writeHead(301, { location: "/brand/register/" }); return void res.end(); }
+  if (req.url === "/transport-failure") return req.socket.destroy();
+  const temporary = /^\/temporary-(429|500|503)$/.exec(req.url ?? "");
+  if (temporary) { res.writeHead(Number(temporary[1])); return void res.end("Temporarily unavailable"); }
   res.writeHead(200, { "content-type": req.url?.startsWith("/reader/") ? "text/plain" : "text/html", "x-usage-tokens": "100" });
   if (req.url?.startsWith("/reader/")) {
     readerHits++;
@@ -101,6 +106,38 @@ test("a missing target stays unconfirmed and its paid response is reused, not bo
   assert.equal(receipt!.status, "received");
   assert.equal(receipt!.attempts, 1);
   assert.equal(receipt!.usage.tokens, 100);
+});
+
+test("without an optional Reader key unreadable bodies settle, while native failures remain retryable", async () => {
+  const previousKey = process.env.JINA_API_KEY;
+  const hits = readerHits;
+  process.env.JINA_API_KEY = "";
+  try {
+    const url = `${base}/${T}/no-reader/missing`;
+    assert.equal(await extractFromUrl(url, `probe:${T}:no-reader`), null);
+    const { articleId } = await upsertMaterial({ sourceId, url, title: "A title without article text", via: "fetch" });
+    assert.equal(await extractArticleBody(articleId), "unconfirmed");
+    const analysis = await analyzeArticle(articleId);
+    assert.equal(analysis?.needsBody, undefined, "an unconfirmed title-only article does not request extraction again");
+    assert.equal(analysis?.output?.relevance, "unknown");
+    assert.deepEqual(analysis?.receiptIds, [], "no evidence is judged without a paid call");
+    const [article] = await sql`SELECT body_status,body_text,body_html,processing_state FROM articles WHERE id=${articleId}`;
+    assert.deepEqual({ ...article }, { body_status: "unconfirmed", body_text: null, body_html: null, processing_state: "analyzed" });
+    for (const status of [429, 500, 503]) {
+      await assert.rejects(extractFromUrl(`${base}/temporary-${status}`, `probe:${T}:temporary-${status}`),
+        (error: unknown) => error instanceof HttpStatusError && error.status === status);
+    }
+    await assert.rejects(extractFromUrl(`${base}/transport-failure`, `probe:${T}:transport`), /fetch failed/i);
+    assert.equal(await extractFromUrl(`${base}/temporary-503`, `probe:${T}:no-fallback`, {}, { paidFallback: false }), null);
+    const source = { id: sourceId, config: { url: `https://r.jina.ai/${base}/listing`, parseMode: "html" } } as never;
+    await assert.rejects(fetchWebList(source), /JINA_API_KEY is not configured/);
+    assert.equal(readerHits, hits, "no optional or explicit Reader request was sent without a key");
+    const receipts = await sql`SELECT id FROM receipts WHERE subject=${`article:${articleId}`} OR subject LIKE ${`probe:${T}:%`}`;
+    assert.equal(receipts.length, 0);
+  } finally {
+    if (previousKey === undefined) delete process.env.JINA_API_KEY;
+    else process.env.JINA_API_KEY = previousKey;
+  }
 });
 
 test("a body read through the reader leaves out the page's consent banner", async () => {

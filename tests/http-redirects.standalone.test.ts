@@ -5,6 +5,7 @@ import http from "node:http";
 import { after, test } from "node:test";
 import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
 import { config } from "@aihot/backend/config";
+import { DEPLOYMENT } from "@aihot/site";
 import { guardedFetch } from "@aihot/backend/lib/http-fetch";
 import { fetchJsonList } from "@aihot/backend/sources/json-list";
 import type { SourceRow } from "@aihot/backend/sources/types";
@@ -165,4 +166,13 @@ test("opaque JSON query callers retain same-origin redirects", async () => {
   a.routes.set("/json-final", (_hit, res) => { res.writeHead(200, { "content-type": "application/json" }); res.end('[{"title":"same-origin","url":"https://example.org/safe"}]'); });
   const source: SourceRow = { id: "same-origin", name: "fixture", kind: "json_list", tier: "T1", participation_mode: "editorial", uses: [], first_party: false, interval_minutes: 60, enabled: true, cursor: null, fail_count: 0, config: { url: `${a.url}/json-safe?api_key=${key}`, titlePaths: ["title"], urlTemplate: "{raw:url}" } };
   assert.equal((await fetchJsonList(source))[0]!.title, "same-origin");
+});
+
+test("unconfigured hosts need no database for pacing", async () => {
+  const intervals = (DEPLOYMENT as { publicFetchIntervalsMs: Partial<Record<string, number>> }).publicFetchIntervalsMs;
+  intervals["unused.invalid"] = 100;
+  try {
+    // Standalone tests point DATABASE_URL at an unreachable address, so a database read would fail.
+    assert.equal((await guardedFetch(a.url + "/unpaced", { timeoutMs: 1000 })).status, 200);
+  } finally { delete intervals["unused.invalid"]; }
 });
