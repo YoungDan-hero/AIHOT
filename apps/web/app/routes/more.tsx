@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { POLICY, SITE } from "@aihot/site";
+import { SITE } from "@aihot/site";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import type { Screen } from "../components/shell/screens";
 import { edgeTtl } from "../lib/api.server";
@@ -35,6 +35,7 @@ const agentWays = () => [...webModules().flatMap((m) => m.agentWays ?? []), "MCP
 const tools = (): Row[] => [
   ...webModules().flatMap((m) => m.tools ?? []),
   { to: "/agent", label: "Agent 接入", icon: <IconPlug size={20} />, detail: agentWays().slice(0, 3).join(" · ") },
+  { to: "/sources", label: "信源", icon: <IconRss size={20} /> },
 ];
 
 function Group({ title, children }: { title?: string; children: ReactNode }) {
@@ -94,13 +95,10 @@ export default function MorePage() {
           ))}
         </Group>
         <Group title="关于">
-          <RowLink row={{ to: "/sources", label: "信源", icon: <IconRss size={20} /> }} />
           <RowLink row={{ to: "/about", label: `关于 ${SITE.name}`, icon: <IconHeart size={20} /> }} />
         </Group>
       </div>
       <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[12px] leading-[2] text-ink-4">
-        <Link viewTransition to="/terms" className="hover:text-ink-2">{POLICY.terms.name}</Link>
-        <Link viewTransition to="/privacy" className="hover:text-ink-2">隐私说明</Link>
         <a href="/feed.xml" className="hover:text-ink-2">RSS</a>
         {SITE.github && <a href={SITE.github} target="_blank" rel="noopener noreferrer" className="hover:text-ink-2">GitHub 开源</a>}
         {SITE.poweredBy && <a href={SITE.poweredBy.url} target="_blank" rel="noopener" className="hover:text-ink-2">由 {SITE.poweredBy.name} 驱动</a>}

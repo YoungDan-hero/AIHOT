@@ -4,6 +4,7 @@ import { useEffect, useRef, type RefObject } from "react";
 
 const layers: object[] = [];
 let pageOverflow = "";
+let pagePaddingEnd = "";
 
 export function useModal({ open, panel, onClose, initialFocus, returnFocus, onKeyDown }: {
   open: boolean;
@@ -19,12 +20,20 @@ export function useModal({ open, panel, onClose, initialFocus, returnFocus, onKe
   useEffect(() => {
     if (!open || !panel.current) return;
     const element = panel.current;
+    const root = document.documentElement;
     element.inert = false;
     const opener = returnFocus ? returnFocus.current : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     const layer = {};
     if (!layers.length) {
-      pageOverflow = document.documentElement.style.overflow;
-      document.documentElement.style.overflow = "hidden";
+      pageOverflow = root.style.overflow;
+      pagePaddingEnd = root.style.paddingInlineEnd;
+      // Keep the page width when locking scroll removes a non-overlay scrollbar.
+      const scrollbarWidth = window.innerWidth - root.clientWidth;
+      if (scrollbarWidth > 0) {
+        const padding = Number.parseFloat(getComputedStyle(root).paddingInlineEnd) || 0;
+        root.style.paddingInlineEnd = `${padding + scrollbarWidth}px`;
+      }
+      root.style.overflow = "hidden";
     }
     layers.push(layer);
     if (!element.contains(document.activeElement)) (initialFocus?.current ?? element).focus({ preventScroll: true });
@@ -50,7 +59,10 @@ export function useModal({ open, panel, onClose, initialFocus, returnFocus, onKe
       element.inert = true;
       const wasTop = layers.at(-1) === layer;
       layers.splice(layers.indexOf(layer), 1);
-      if (!layers.length) document.documentElement.style.overflow = pageOverflow;
+      if (!layers.length) {
+        root.style.overflow = pageOverflow;
+        root.style.paddingInlineEnd = pagePaddingEnd;
+      }
       if (wasTop && opener?.isConnected) opener.focus({ preventScroll: true });
     };
   }, [open, panel, initialFocus, returnFocus]);

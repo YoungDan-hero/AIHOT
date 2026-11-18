@@ -1,7 +1,7 @@
 // Outward HTTP behaviour, defined once: CORS, the public interface version, redirects and which process
 // owns a path, the engine's and then those of the site's modules. The API server and the web server both
 // read this module.
-import { ABOUT, POLICY, SITE } from "@aihot/site";
+import { ABOUT, SITE } from "@aihot/site";
 import { MODULES } from "@aihot/site/modules";
 
 /** CORS for /api/v1/* and /openapi-v1.json. */
@@ -17,7 +17,6 @@ export const PUBLIC_API_CORS: Record<string, string> = {
     "Deprecation",
     "Sunset",
     "Link",
-    ...Object.keys(POLICY.terms.headers ?? {}),
   ].join(", "),
   "Access-Control-Max-Age": "86400",
 };
@@ -45,7 +44,7 @@ export interface RedirectRule {
 const ENGINE_REDIRECTS: RedirectRule[] = [
   {
     match: "regex",
-    path: "^/(all|about|agent|starred|more|privacy|terms)/+$",
+    path: "^/(all|about|agent|starred|more)/+$",
     status: 301,
     location: "/$1",
     keepQuery: true,

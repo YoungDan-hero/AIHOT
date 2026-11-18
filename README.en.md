@@ -32,6 +32,6 @@ node scripts/smoke.ts --base http://localhost:3000
 
 The test database name must end in `_test` or `_ci`. Tests use local fake collectors and model services. Editorial thresholds need calibration against human-labelled short-drama examples; passing software tests does not establish editorial accuracy.
 
-Site copy and identity live in `site/`; taxonomy, sources and prompts live in `industry/`. Terms and privacy pages are deployment templates awaiting the operator's identity, contact details and actual data-retention arrangements. This repository does not assert that a public deployment is live.
+Site copy and identity live in `site/`. Taxonomy, sources and prompts live in `industry/`.
 
 [简体中文](README.md)

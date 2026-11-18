@@ -6,7 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { DEPLOYMENT, POLICY, SITE } from "@aihot/site";
+import { DEPLOYMENT, SITE } from "@aihot/site";
 import { PUBLIC_INTERFACE_VERSION } from "@aihot/contracts/http-policy";
 import { MCP_TOOL_NAMES as T, mcpToolName } from "@aihot/contracts/mcp";
 import { PUBLIC_API_CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
@@ -279,10 +279,10 @@ function allowedOrigin(origin: string | undefined): boolean {
 }
 
 // Browser clients on the site or on a local development address (the MCP inspector): a 204 preflight,
-// and the protocol headers and the site's usage-policy headers readable on responses.
+// and the protocol headers readable on responses.
 const CORS_METHODS = "POST, GET, DELETE, OPTIONS";
 const CORS_HEADERS = "Content-Type, Accept, MCP-Protocol-Version, MCP-Session-Id, Last-Event-ID, MCP-Method, MCP-Name";
-const CORS_EXPOSE = ["MCP-Protocol-Version", "MCP-Session-Id", "Link", ...Object.keys(POLICY.terms.headers ?? {})].join(", ");
+const CORS_EXPOSE = "MCP-Protocol-Version, MCP-Session-Id, Link";
 
 function corsHeaders(reply: FastifyReply, origin: string | undefined) {
   reply.header("Vary", "Origin");

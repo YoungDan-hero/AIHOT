@@ -16,7 +16,7 @@
 
 ## 当前接入信源
 
-当前启用 **1,000 个信源（国内 721、海外 279）**。本地 worker 持续采集，并用豆包筛选和整理资讯。
+当前启用 **1,009 个信源（国内 726、海外 283）**。本地 worker 持续采集，并用豆包筛选和整理资讯。
 
 来源包括短剧自习室、新腕儿、新榜、界面、钛媒体、中国新闻出版广电报、广电总局和地方广电、中文在线，以及C21、Television Asia Plus、Tubefilter等。完整入口、选择器与频率见 `industry/sources.json`，运行方法见[短剧站说明](docs/short-drama.md)。
 
@@ -60,6 +60,5 @@ node scripts/smoke.ts --base http://localhost:3000
 | `docs/short-drama.md` | 本站信源接入、启动与运行检查 |
 | `docs/architecture.md` | 框架进程、数据层、任务与模块约定 |
 
-使用规则和隐私说明保留为上线前确认的模板，运营主体、联系方式、实际日志服务与保存期限须由运营方补齐。这里没有声明站点已经对外上线。
 
 [English](README.en.md)

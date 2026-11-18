@@ -7,7 +7,7 @@ const PAGE_SIZE = 50;
 export async function loadSourceDirectory({ q, status, page }: { q: string; status: SourceHealth | null; page: number }): Promise<SourceDirectoryResponse> {
   const rows = await sql<{ id: string; name: string; status: SourceHealth; last_fetch_at: Date | null }[]>`
     SELECT id, name, CASE WHEN enabled THEN health ELSE 'paused' END AS status, last_fetch_at
-    FROM sources ORDER BY name, id`;
+    FROM sources ORDER BY ('国内信源' = ANY(tags)) DESC, name, id`;
   const search = q.toLowerCase();
   // Search the displayed name so annotations kept for editors are never matched.
   const sources = rows.map((row) => ({ ...row, name: publicSourceName(row.name) }))

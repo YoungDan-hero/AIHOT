@@ -1,29 +1,25 @@
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { IconMonitor, IconMoon, IconSun } from "../icons";
-import { applyTheme, resolvedTheme, setThemePreference, useThemePreference, type ThemePreference } from "../../lib/local-state";
+import { applyTheme, DEFAULT_THEME, resolvedTheme, setThemePreference, useThemePreference, type ThemePreference } from "../../lib/local-state";
 import { reducedMotion } from "../../lib/motion";
 
-type Choice = "dark" | "system" | "light";
+type Choice = NonNullable<ThemePreference>;
 
 const OPTIONS: Array<{ key: Choice; label: string; icon: ReactNode }> = [
   { key: "dark", label: "深色", icon: <IconMoon size={14} /> },
-  { key: "system", label: "跟随系统", icon: <IconMonitor size={14} /> },
+  { key: "auto", label: "跟随系统", icon: <IconMonitor size={14} /> },
   { key: "light", label: "浅色", icon: <IconSun size={14} /> },
 ];
 
 /** Three-way appearance switch (dark / follow the system / light) with a sliding thumb. */
 export function ThemeSwitch({ className = "" }: { className?: string }) {
-  const pref = useThemePreference();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const current: Choice = !mounted ? "system" : (pref ?? "system");
+  const current = useThemePreference() ?? DEFAULT_THEME;
   const index = OPTIONS.findIndex((o) => o.key === current);
 
   const choose = (key: Choice) => {
-    const nextPref: ThemePreference = key === "system" ? null : key;
     const apply = () => {
-      setThemePreference(nextPref);
-      applyTheme(resolvedTheme(nextPref), nextPref === null);
+      setThemePreference(key);
+      applyTheme(resolvedTheme(key));
     };
     const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
     if (doc.startViewTransition && !reducedMotion()) {

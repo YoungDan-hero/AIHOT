@@ -2,7 +2,7 @@
 // ability. Agents only fetch these addresses and relay what comes back, so which data answers a
 // question, how it reads and what to tell the user are decided here, on the server. Programs keep
 // reading the v1 JSON, whose fields do not change.
-import { ACCESS, EDITION_WHEN, ITEM_COPY, POLICY, SITE, subjectAfter } from "@aihot/site";
+import { ACCESS, EDITION_WHEN, ITEM_COPY, SITE, subjectAfter } from "@aihot/site";
 import { CATEGORIES } from "@aihot/industry/taxonomy";
 import { MCP_TOOL_NAMES as T } from "@aihot/contracts/mcp";
 import { CATEGORY_LABELS, isCategoryKey, PUBLIC_API_CATEGORY_KEYS, toPublicApiCategory, type PublicApiCategoryKey } from "@aihot/contracts/taxonomy";
@@ -323,10 +323,6 @@ export function agentGuide(): string {
     `- 要写程序做定时同步、推送或维护本地副本，不用这些地址，改用 JSON 接口：${siteUrl("/openapi-v1.json")} `
       + (ACCESS.userAgent ? `（User-Agent 用 ${ACCESS.userAgent}）` : "")
       + "。",
-    "",
-    "## 使用规则",
-    "",
-    `${POLICY.terms.license?.agent ?? ""}完整规则见 ${siteUrl("/terms")} ${SITE.contactEmail ? `，授权联系 ${SITE.contactEmail} ` : ""}。`,
   ];
   return `${lines.join("\n")}\n`;
 }

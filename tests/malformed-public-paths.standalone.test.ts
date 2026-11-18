@@ -121,3 +121,13 @@ test('retired topic directory, detail and share cards return 404', async () => {
     assert.equal((await app.inject(path)).statusCode, 404, path);
   }
 });
+
+test('retired policy pages and share cards return 404', async () => {
+  for (const page of ['terms', 'privacy']) {
+    for (const path of [`/${page}`, `/${page}/`]) {
+      const response = await fetch(`${web.origin}${path}`, { redirect: 'manual' });
+      assert.equal(response.status, 404, path);
+    }
+    assert.equal((await app.inject(`/og/pages/${page}.png`)).statusCode, 404, page);
+  }
+});

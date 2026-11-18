@@ -453,7 +453,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Long-form reading (article bodies, reports, legal pages)
+   Long-form reading (article bodies and reports)
    --------------------------------------------------------------------------- */
 /*
  * Article text as Chinese magazines and news sites set it (16–17px
@@ -582,35 +582,6 @@
 .prose.prose-quote { font-size: 15px; line-height: 1.75; letter-spacing: 0; color: var(--ink-2); }
 .prose.prose-quote-original { font-size: 14px; line-height: 1.7; letter-spacing: 0; color: var(--ink-3); }
 .prose:is(.prose-quote, .prose-quote-original) > * + * { margin-top: 0.75em; }
-
-/* Policy pages read smaller and quieter than article bodies, with numbered sections set apart. */
-.prose-compact {
-  font-size: 15px;
-  line-height: 1.85;
-  color: var(--ink-2);
-}
-@media (min-width: 80rem) {
-  .prose-compact { font-size: 16px; line-height: 1.85; }
-}
-.prose-compact h2 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-top: 2.2em;
-  padding-top: 1.4em;
-  border-top: 1px solid var(--line);
-}
-.prose-compact h3 {
-  font-size: 16px;
-  margin-top: 1.6em;
-}
-.prose-compact table {
-  font-size: 13px;
-}
-.prose-compact td:first-child {
-  color: var(--ink);
-  font-weight: 600;
-  white-space: nowrap;
-}
 
 /* Report pages read on a faintly toned paper in the light theme, lighter than the site's page ground;
    the archive column is halfway between the site sidebar and white. */

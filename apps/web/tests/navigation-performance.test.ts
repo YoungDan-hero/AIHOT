@@ -13,7 +13,7 @@
 import assert from "node:assert/strict";
 import { before, after, test } from "node:test";
 import { chromium, webkit, expect, type Browser } from "@playwright/test";
-import type { ReportDetail } from "@aihot/contracts/site";
+import type { ReportDetail, SourceDirectoryResponse } from "@aihot/contracts/site";
 import { FIXTURE_AT as at, fakeApi, feedItem, itemDetail, startWebServer, visit, type WebServer } from "./web-server.ts";
 
 const item = feedItem({id:'navigation-fixture',title:'性能检查文章'});
@@ -53,6 +53,21 @@ const api=fakeApi((url,res,req)=>{
     const page=Number(url.searchParams.get('page')||1);
     return {filters:{channel:'all',category:null,tag:null,q:null,tab:'time'},items:[{...item,title:'全部第 '+page+' 页'}],page,pageCount:3,total:3,todayCount:1,freshness:at};
   }
+  if (p === "/api/site/sources") {
+    const items: SourceDirectoryResponse["items"] = [
+      { id: "active", name: "活跃信源", status: "ok", lastFetchAt: at },
+      ...Array.from({ length: 51 }, (_, i) => ({
+        id: `paused-${i + 1}`, name: `测试信源 ${i + 1}`, status: "paused" as const, lastFetchAt: null,
+      })),
+    ];
+    const query = url.searchParams.get("q") ?? "";
+    const status = url.searchParams.get("status");
+    const filtered = items.filter((item) => item.name.includes(query) && (!status || item.status === status));
+    const pageCount = Math.max(1, Math.ceil(filtered.length / 50));
+    const page = Math.min(Number(url.searchParams.get("page") ?? 1), pageCount);
+    return { items: filtered.slice((page - 1) * 50, page * 50), total: filtered.length, page, pageCount };
+  }
+  if (p === "/api/site/source-suggestions" && req.method === "POST") return { ok: true };
   if(p==='/api/site/items/navigation-fixture')return detail;
   if(p==='/api/site/items/navigation-fixture/original')return {...detail,body:{zh:null,original:'<p>Original fixture</p>',zhKind:null,complete:true},bodyLanguage:'original'};
   if(p==='/api/site/items/reader-fixture')return {...detail,id:'reader-fixture',title:'阅读增强检查',body:{...detail.body,zh:readerBody}};
@@ -92,6 +107,116 @@ test('domestic and overseas feeds are equally reachable on phones and desktop',a
       await expect(page.getByRole('link',{name:'分类 domestic',exact:true})).toBeVisible();
     }finally{await context.close();}
   }
+});
+
+test("the site opens in light mode on a dark system and remembers an explicit choice to follow it", async () => {
+  const context = await chrome.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark", reducedMotion: "reduce" });
+  try {
+    const page = await context.newPage();
+    const url = origin + "/sources";
+    await visit(page, url);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.getByRole("radio", { name: "浅色" })).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("radio", { name: "跟随系统" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await visit(page, url);
+    await expect(page.locator('meta[name="theme-color"]')).toHaveCount(1);
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#13191c");
+    await expect(page.getByRole("radio", { name: "跟随系统" })).toHaveAttribute("aria-checked", "true");
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  } finally { await context.close(); }
+});
+
+test("readers can open the sources directory and keep its filters when paging", async () => {
+  for (const [browser, width] of [[safari, 320], [chrome, 1280]] as const) {
+    const context = await browser.newContext({ viewport: { width, height: 844 }, reducedMotion: "reduce" });
+    try {
+      const page = await context.newPage();
+      const phone = width === 320;
+      await visit(page, origin + (phone ? "/more" : "/"));
+      const sources = page.getByRole("link", { name: "信源", exact: true });
+      const about = page.getByRole("link", { name: phone ? /^关于 / : /^关于$/ });
+      assert.ok(await sources.evaluate((source) => {
+        const aboutLink = [...document.querySelectorAll('a[href="/about"]')].find((link) => link.getClientRects().length > 0);
+        return aboutLink && source.compareDocumentPosition(aboutLink) & Node.DOCUMENT_POSITION_FOLLOWING;
+      }));
+      await expect(about).toBeVisible();
+      await sources.click();
+      const feedbackHint = page.getByText("没找到想看的信源？欢迎推荐。", { exact: true });
+      await expect(feedbackHint).toBeVisible();
+      const hint = await feedbackHint.boundingBox();
+      const feedback = await page.getByRole("button", { name: "信源反馈" }).boundingBox();
+      assert.ok(hint && feedback);
+      const gap = feedback.x - (hint.x + hint.width);
+      assert.ok(gap >= 0 && gap <= 12, "the help text sits immediately to the left of the feedback button");
+      const table = page.getByRole("table", { name: /信源列表/ });
+      await expect(table.getByText("2026-10-04 16:00")).toBeVisible();
+      await expect(table.getByText("尚未采集").first()).toBeVisible();
+      const next = () => page.getByRole("link", { name: "下一页" });
+      await next().click();
+      await expect(page).toHaveURL(/\/sources\?page=2$/);
+      await page.getByRole("searchbox", { name: "信源名称" }).fill("测试信源");
+      await page.getByRole("combobox", { name: "信源状态" }).selectOption("paused");
+      await page.getByRole("button", { name: "筛选", exact: true }).click();
+      await expect(page.getByRole("status").getByText("51")).toBeVisible();
+      assert.equal(new URL(page.url()).searchParams.has("page"), false);
+      await expect(table.getByText("活跃信源")).toHaveCount(0);
+      await next().click();
+      await expect(table.getByRole("rowheader", { name: "测试信源 51" })).toBeVisible();
+      const params = new URL(page.url()).searchParams;
+      assert.deepEqual(Object.fromEntries(params), { q: "测试信源", status: "paused", page: "2" });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+    } finally { await context.close(); }
+  }
+});
+
+test("source feedback keeps the current directory page and preserves fields after a failed submission", async () => {
+  const context = await safari.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    const url = origin + "/sources?q=测试信源&status=paused&page=2";
+    await visit(page, url);
+    const opener = page.getByRole("button", { name: "信源反馈" });
+    await opener.click();
+    const dialog = page.getByRole("dialog", { name: "信源反馈" });
+    const name = dialog.getByLabel("信源名称");
+    const link = dialog.getByLabel("信源链接");
+    await name.fill("新信源");
+    await link.fill("https://example.org/news");
+    await page.route("**/api/site/source-suggestions", (route) => route.fulfill({ status: 503 }), { times: 1 });
+    await dialog.getByRole("button", { name: "提交反馈" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText("提交失败，请稍后再试。");
+    await expect(name).toHaveValue("新信源");
+    await expect(link).toHaveValue("https://example.org/news");
+    const submitted = page.waitForRequest((request) => request.method() === "POST" && request.url().endsWith("/api/site/source-suggestions"));
+    await dialog.getByRole("button", { name: "提交反馈" }).click();
+    assert.deepEqual((await submitted).postDataJSON(), { name: "新信源", url: "https://example.org/news" });
+    await expect(dialog.getByRole("status")).toHaveText("信源反馈已提交。");
+    await dialog.getByRole("button", { name: "完成" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
+    assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), { q: "测试信源", status: "paused", page: "2" });
+  } finally { await context.close(); }
+});
+
+test("source feedback keeps the table still when its modal locks a classic scrollbar", async () => {
+  const desktop = await chromium.launch({ channel: "chromium", ignoreDefaultArgs: ["--hide-scrollbars"] });
+  try {
+    const page = await desktop.newPage({ viewport: { width: 1920, height: 900 } });
+    await visit(page, origin + "/sources");
+    await page.addStyleTag({ content: "html::-webkit-scrollbar { width: 16px; }" });
+    assert.equal(await page.evaluate(() => innerWidth - document.documentElement.clientWidth), 16);
+    const table = page.locator("table");
+    const initial = await table.boundingBox();
+    assert.ok(initial);
+    await page.getByRole("button", { name: "信源反馈" }).click();
+    await page.waitForFunction(() => document.documentElement.style.overflow === "hidden");
+    assert.deepEqual(await table.boundingBox(), initial);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.documentElement.style.overflow !== "hidden");
+    assert.deepEqual(await table.boundingBox(), initial);
+  } finally { await desktop.close(); }
 });
 
 // One engine per behaviour: WebKit for what phone readers do (iPhone Safari), Chromium for desktop-only

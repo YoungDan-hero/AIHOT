@@ -29,8 +29,6 @@ export default [
   route("monthly/:key", "routes/report-detail.tsx", { id: "monthly-detail" }),
   route("sources", "routes/sources.tsx"),
   route("about", "routes/about.tsx"),
-  route("terms", "routes/terms.tsx"),
-  route("privacy", "routes/privacy.tsx"),
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),

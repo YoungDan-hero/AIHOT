@@ -161,12 +161,12 @@ test("a shared cache may keep an item page longer than browsers", async () => {
 // A tab opened before a page lost its loader still asks for that page's result, and its router rejects
 // a missing one before React's release recovery can run.
 test("a page without a loader still answers navigation with an empty result", async () => {
-  const res = await fetch(`${origin}/terms.data?_routes=routes%2Fterms`);
+  const res = await fetch(`${origin}/more.data?_routes=routes%2Fmore`);
   assert.equal(res.status, 200);
   const { value } = await UNSAFE_decodeViaTurboStream(res.body!, globalThis);
   const result = value as Record<string, { data: unknown }>;
-  assert.ok("routes/terms" in result, "an already open router must be able to unwrap its requested route");
-  assert.equal(result["routes/terms"]!.data, null);
+  assert.ok("routes/more" in result, "an already open router must be able to unwrap its requested route");
+  assert.equal(result["routes/more"]!.data, null);
 });
 
 test("browser caching preserves noindex and private sign-in responses", async () => {

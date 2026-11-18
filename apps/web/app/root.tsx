@@ -14,7 +14,7 @@ import { usePageTransition } from "./components/shell/transitions";
 import { SearchOverlay } from "./features/search/SearchOverlay";
 import { BackToTop, NavigationProgress } from "./components/shell/Chrome";
 import { buttonClass } from "./components/ui/Controls";
-import { APPEARANCE_BOOT_SCRIPT, useAppearanceSync } from "./lib/local-state";
+import { APPEARANCE_BOOT_SCRIPT, DEFAULT_THEME, THEME_COLOR, useAppearanceSync } from "./lib/local-state";
 import { useHydratedFlag } from "./lib/hydration";
 import { titled } from "./lib/seo";
 import { webModules } from "./site-modules";
@@ -37,14 +37,16 @@ export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 export function Layout({ children }: { children: React.ReactNode }) {
   const site = useRouteLoaderData<typeof loader>("root");
   const [documentRelease] = useState(site?.release ?? null);
+  // Match the theme-color meta that the boot script already updated before hydration.
+  const [documentTheme] = useState<keyof typeof THEME_COLOR>(() =>
+    typeof document !== "undefined" && document.documentElement.dataset.theme === "dark" ? "dark" : DEFAULT_THEME);
   return (
-    <html lang={SITE.locale} suppressHydrationWarning>
+    <html lang={SITE.locale} data-theme={documentTheme} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         {documentRelease && <meta name="aihot-release" content={documentRelease} />}
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf9f6" />
-        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#13191c" />
+        <meta name="theme-color" content={THEME_COLOR[documentTheme]} />
         <meta name="apple-mobile-web-app-title" content={SITE.name} />
         <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT_SCRIPT }} />
         {webModules().map((m) => m.root?.bootScript && <script key={m.name} dangerouslySetInnerHTML={{ __html: m.root.bootScript }} />)}

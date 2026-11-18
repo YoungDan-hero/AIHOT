@@ -1,8 +1,8 @@
 import { Fragment, useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { IntentLink } from "../components/ui/IntentLink";
-import { Link, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
 import type { SiteContact, SiteStats } from "@aihot/contracts/site";
-import { ABOUT, POLICY, REPORTS, SEO_TITLES, SITE, subjectAfter } from "@aihot/site";
+import { ABOUT, REPORTS, SEO_TITLES, SITE, subjectAfter } from "@aihot/site";
 import { apiGet, cachedPage } from "../lib/api.server";
 import { pageReuse } from "../lib/page-reuse";
 import { organizationLd, pageMeta } from "../lib/seo";
@@ -263,21 +263,8 @@ export default function AboutPage() {
         {ABOUT.copyright}
       </p>
 
-      <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-[12.5px] text-ink-4">
-        <span>{SITE.footerNote}</span>
-        <nav className="flex gap-5" aria-label="规则与隐私">
-          <Link
-            viewTransition
-            id={ABOUT.termsAnchor ?? undefined}
-            to="/terms"
-            className="transition-colors hover:text-accent"
-          >
-            {POLICY.terms.name}
-          </Link>
-          <Link viewTransition to="/privacy" className="transition-colors hover:text-accent">
-            隐私说明
-          </Link>
-        </nav>
+      <footer className="mt-8 border-t border-line pt-5 text-[12.5px] text-ink-4">
+        {SITE.footerNote}
       </footer>
     </div>
   );

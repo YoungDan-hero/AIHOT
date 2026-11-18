@@ -59,8 +59,6 @@ export const SITE = {
    * 改了接口里已有的字段或含义时升主版本，并在部署说明里写清。
    */
   interfaceVersion: "4.0.0",
-  /** 对外联系邮箱（选填）：llms.txt 和给 Agent 的使用说明里会写。 */
-  contactEmail: null as string | null,
   /** 关于页底部的一行小字（选填）。 */
   footerNote: "国内短剧为主，兼顾出海与海外资讯。",
   /** 中国大陆网站的 ICP 备案号（选填），填了就显示在侧栏底部和“我的”页底部，并链接到工信部备案系统。 */
@@ -81,32 +79,7 @@ export const SITE = {
   crawlerName: "DuanjuFrontlineBot/1.0",
 } as const;
 
-/** 使用规则和隐私说明两页（正文在 pages/ 里）。 */
 export const POLICY = {
-  terms: {
-    /** 页面名：导航、页脚、页面标题都用它。 */
-    name: "使用规则",
-    description: "本站网页、RSS、公开 API 与 MCP 的使用规则。",
-    /** llms.txt 里对这一页的一句说明（选填）。 */
-    covers: null as string | null,
-    /** Agent 接入页的 RSS、API 两栏各自提醒的使用规则（选填）。 */
-    notes: null as null | { rss: string; api: string },
-    /**
-     * 讲清哪些用途要先取得授权的话（选填）：llms 接在 llms.txt“使用说明”的版权说明后面，
-     * agent 写在给 Agent 的使用说明“使用规则”一节的开头。
-     */
-    license: null as null | { llms: string; agent: string },
-    /**
-     * 公开 API、RSS 和 OpenAPI 文件声明使用规则的响应头（选填）：原样附上，再加一个指向这一页的
-     * Link 头（rel="terms-of-service"）；浏览器里的调用方也读得到它们。
-     */
-    headers: null as null | Record<string, string>,
-  },
-  privacy: {
-    description: "本站如何处理浏览器本地数据与访问日志。",
-    /** llms.txt 里对这一页的一句说明（选填）。 */
-    covers: null as string | null,
-  },
   /**
    * X 帖子本身的文字和图片算不算全文：算的话，只在这篇允许站内全文时显示（信源允许全文、正文也取到了）；
    * 不算的话总是显示，和标题、摘要一样。
@@ -171,8 +144,6 @@ export const ABOUT = {
   },
   /** 页面底部的版权说明。 */
   copyright: `${SITE.name} 是聚合摘要和阅读索引，原文版权归各来源所有。`,
-  /** 页面底部“使用规则”链接的锚点 id（选填）：外部文档写死过这个锚点就填上，以后不要改。 */
-  termsAnchor: null as string | null,
 } as const;
 
 /** 后台页面上给管理员的提示（选填）。 */
@@ -248,8 +219,6 @@ export const CARDS: Record<string, { kicker: string; title: string; subtitle: st
   weekly: { kicker: withSubject("周报"), title: `一周${REPORTS.entry.noun}，一次看清`, subtitle: "本周的主线、重要发布与值得回看的讨论。" },
   monthly: { kicker: withSubject("月报"), title: "一个月的变化", subtitle: "月度主线与关键事件回顾。" },
   about: { kicker: "关于", title: `关于 ${SITE.name}`, subtitle: SITE.description },
-  terms: { kicker: "使用规则", title: `${SITE.name} 使用规则`, subtitle: "网页、API、RSS 与 MCP 的使用范围。" },
-  privacy: { kicker: "隐私说明", title: `${SITE.name} 隐私说明`, subtitle: "访问日志与浏览器本地数据的处理方式。" },
   agent: { kicker: "Agent 接入", title: `把 ${SITE.name} 接进你的 Agent`, subtitle: "MCP、RSS、API 三种方式，匿名只读，无需 API Key。" },
 };
 
@@ -336,12 +305,15 @@ export const DEPLOYMENT = {
     "cusx.edu.cn": 2000,
     "cyzone.cn": 2000,
     "dahe.cn": 2000,
+    "deadline.com": 2000,
     "digiday.com": 2000,
+    "digitaling.com": 2000,
     "donews.com": 2000,
     "duanju007.com": 2000,
     "dwdl.de": 2000,
     "dzwww.com": 2000,
     "e.gmw.cn": 2000,
+    "ebrun.com": 2000,
     "engadget.com": 2000,
     "ent.huanqiu.com": 2000,
     "ent.people.com.cn": 2000,
@@ -373,6 +345,7 @@ export const DEPLOYMENT = {
     "hi-lp.cn": 2000,
     "hindustantimes.com": 2000,
     "hljgdj.hlj.gov.cn": 2000,
+    "hollywoodreporter.com": 2000,
     "holywater.tech": 2000,
     "huacemedia.com": 2000,
     "huxiu.com": 2000,
@@ -430,6 +403,7 @@ export const DEPLOYMENT = {
     "shortsreport.com": 2000,
     "sjc.bnu.edu.cn": 2000,
     "socialbeta.com": 2000,
+    "socialmediatoday.com": 2000,
     "socialsamosa.com": 2000,
     "sootoo.com": 2000,
     "spp.gov.cn": 2000,
@@ -450,6 +424,7 @@ export const DEPLOYMENT = {
     "tuanwei.nwu.edu.cn": 2000,
     "tubefilter.com": 2000,
     "tva.onscreenasia.com": 2000,
+    "variety.com": 2000,
     "verticaldrama.tv": 2000,
     "verticalobserver.com": 2000,
     "vibes.8world.com": 2000,

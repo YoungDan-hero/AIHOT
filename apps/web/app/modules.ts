@@ -111,8 +111,6 @@ export interface WebModule {
   starredImports?: Array<{ label: string; run: () => Promise<{ ok: boolean; text: string }> }>;
   /** A press a page reports for the site's own counts (lib/clicks.ts): what was pressed, nothing about the reader. */
   onClick?: (target: string) => void;
-  /** The terms page's footer: links after the engine's (routes/terms.tsx). */
-  termsLinks?: Array<{ to: string; label: string }>;
   /** Its ways into the agent page (AgentPart.tracks) by their short names: the 我的 page's row names the first three (routes/more.tsx). */
   agentWays?: string[];
 }

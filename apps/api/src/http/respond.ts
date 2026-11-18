@@ -1,9 +1,7 @@
 // Shared HTTP helpers: Problem JSON, public API headers, ETag / 304, strict query parsing.
 import { createHash } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { POLICY } from "@aihot/site";
 import { NO_STORE, PUBLIC_API_CORS } from "@aihot/contracts/http-policy";
-import { siteUrl } from "@aihot/backend/publication/links";
 import type { JsonNotice } from "@aihot/backend/modules";
 
 const PROBLEM_TITLES: Record<number, string> = {
@@ -54,21 +52,14 @@ export interface PublicHeadersOptions {
   cors?: boolean;
 }
 
-/** CORS for public machine endpoints, and the site's usage-policy headers (POLICY.terms.headers). */
+/** Shared CORS and optional deprecation headers for public machine endpoints. */
 export function applyPublicHeaders(reply: FastifyReply, opts: PublicHeadersOptions = {}) {
   if (opts.cors !== false) for (const [k, v] of Object.entries(PUBLIC_API_CORS)) reply.header(k, v);
-  // Every Link value goes into one header: the terms that come with the policy headers, then the rest.
-  const links: string[] = [];
-  if (POLICY.terms.headers) {
-    for (const [k, v] of Object.entries(POLICY.terms.headers)) reply.header(k, v);
-    links.push(`<${siteUrl("/terms")}>; rel="terms-of-service"`);
-  }
   if (opts.deprecation) {
     reply.header("Deprecation", "true");
     reply.header("Sunset", opts.deprecation.sunset);
-    links.push(`<${opts.deprecation.guide}>; rel="deprecation"`);
+    reply.header("Link", `<${opts.deprecation.guide}>; rel="deprecation"`);
   }
-  if (links.length) reply.header("Link", links.join(", "));
 }
 
 export function weakEtag(prefix: string, body: string): string {

@@ -12,12 +12,13 @@ import { loadStoryFollowups } from "@aihot/backend/publication/followups";
 import { loadGroupReports } from "@aihot/backend/publication/groups";
 import { hotSearchLinks, loadHotStrip } from "@aihot/backend/publication/hot";
 import { loadContact, loadMakerAvatar } from "@aihot/backend/site/contact";
+import { saveSourceSuggestion } from "@aihot/backend/site/source-suggestions";
 import { loadSiteStats } from "@aihot/backend/site/stats";
 import { itemAvailability } from "@aihot/backend/publication/availability";
 import { loadSourceDirectory } from "@aihot/backend/publication/sources";
 import { loadHot, loadStoryDetail, resolveStory } from "@aihot/backend/publication/stories";
 import { listReports, loadReport, reportNavigation, loadReportNavigation, loadReportMonth, type ReportKind } from "@aihot/backend/publication/reports";
-import { looseQuery, QueryError, sendJsonWithEtag, sendProblem } from "../http/respond.ts";
+import { clientIp, looseQuery, QueryError, sendJsonWithEtag, sendProblem } from "../http/respond.ts";
 
 type Handler = (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 
@@ -125,6 +126,38 @@ export function registerSite(app: FastifyInstance) {
     const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
     const directory = await loadSourceDirectory({ q: (q.q ?? "").trim().slice(0, 120), status: status as SourceHealth | null, page });
     return reply.header("Cache-Control", "no-store").send(directory);
+  }));
+
+  const suggestionsByIp = new Map<string, number>();
+  let suggestionMinute = -1;
+  app.post("/api/site/source-suggestions", { bodyLimit: 8 * 1024 }, siteHandler(async (req, reply) => {
+    if (req.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") {
+      throw new BadRequest("请提交 JSON 格式的反馈");
+    }
+    const body = req.body as { name?: unknown; url?: unknown } | null;
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const value = typeof body?.url === "string" ? body.url.trim() : "";
+    if (!name || name.length > 120 || /[\x00-\x1f\x7f]/.test(name)) {
+      throw new BadRequest("请输入 1 至 120 字的信源名称");
+    }
+    const url = /^https?:\/\//i.test(value) && value.length <= 2048 ? URL.parse(value) : null;
+    if (!url || url.username || url.password || url.href.length > 2048 || /[\x00-\x20\x7f]/.test(value)) {
+      throw new BadRequest("请输入有效的 HTTP 或 HTTPS 信源链接");
+    }
+
+    const now = Math.floor(Date.now() / 60_000);
+    if (now !== suggestionMinute) {
+      suggestionsByIp.clear();
+      suggestionMinute = now;
+    }
+    const ip = clientIp(req);
+    const count = suggestionsByIp.get(ip) ?? 0;
+    if (count >= 8) return sendProblem(req, reply, {
+      status: 429, code: "rate_limited", detail: "提交过于频繁，请稍后再试", retryAfter: 60,
+    });
+    suggestionsByIp.set(ip, count + 1);
+    const created = await saveSourceSuggestion(name, url.href);
+    return reply.code(created ? 201 : 200).header("Cache-Control", "no-store").send({ ok: true });
   }));
 
   app.get("/api/site/items/availability", siteHandler(async (req, reply) => {

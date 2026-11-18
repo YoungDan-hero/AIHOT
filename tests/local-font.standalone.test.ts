@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
-import { APPEARANCE_BOOT_SCRIPT, exportBundle, getFontPreference, importBundle, KEYS, setFontPreference } from "../apps/web/app/lib/local-state.ts";
+import { APPEARANCE_BOOT_SCRIPT, exportBundle, getFontPreference, getThemePreference, importBundle, KEYS, resolvedTheme, setFontPreference, setThemePreference } from "../apps/web/app/lib/local-state.ts";
 
 class MemoryStorage {
   values = new Map<string, string>();
@@ -21,10 +21,48 @@ test("appearance startup applies a saved browser font before rendering and safel
     runInNewContext(APPEARANCE_BOOT_SCRIPT, {
       localStorage: { getItem: (key: string) => { if (font === "denied") throw new Error("blocked"); return key === KEYS.font ? font : "dark"; } },
       window: { matchMedia: () => ({ matches: false }) },
-      document: { documentElement: { setAttribute: (key: string, value: string) => { attributes[key] = value; } }, querySelectorAll: () => [] },
+      document: { documentElement: { setAttribute: (key: string, value: string) => { attributes[key] = value; } }, querySelector: () => null },
     });
     assert.equal(attributes["data-font"], font === "browser" ? "browser" : "system");
     assert.equal(attributes["data-theme"], font === "denied" ? "light" : "dark");
+  }
+});
+
+test("first paint defaults to light on a dark system and honors saved themes", () => {
+  for (const [saved, systemDark, expected, color] of [
+    [null, true, "light", "#faf9f6"],
+    ["bad", true, "light", "#faf9f6"],
+    ["light", true, "light", "#faf9f6"],
+    ["dark", false, "dark", "#13191c"],
+    ["auto", false, "light", "#faf9f6"],
+    ["auto", true, "dark", "#13191c"],
+  ] as const) {
+    const attributes: Record<string, string> = {};
+    const meta = { content: "#faf9f6" };
+    runInNewContext(APPEARANCE_BOOT_SCRIPT, {
+      localStorage: { getItem: (key: string) => key === KEYS.theme ? saved : null },
+      window: { matchMedia: () => ({ matches: systemDark }) },
+      document: { documentElement: { setAttribute: (key: string, value: string) => { attributes[key] = value; } }, querySelector: () => meta },
+    });
+    assert.equal(attributes["data-theme"], expected);
+    assert.equal(meta.content, color);
+  }
+});
+
+test("an explicitly selected system theme is distinct from the default in storage and backups", () => {
+  setThemePreference(null);
+  try {
+    assert.equal(resolvedTheme(), "light");
+    assert.equal(exportBundle().theme, null);
+    setThemePreference("auto");
+    assert.equal(store.getItem(KEYS.theme), "auto");
+    const backup = exportBundle();
+    setThemePreference(null);
+    assert.equal(importBundle(JSON.stringify(backup)).themeApplied, true);
+    assert.equal(getThemePreference(), "auto");
+    assert.equal(importBundle(JSON.stringify({ ...backup, theme: "dark" })).themeApplied, false);
+  } finally {
+    setThemePreference(null);
   }
 });
 

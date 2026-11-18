@@ -33,7 +33,7 @@ const ENGINE_SCHEDULES: Scheduled[] = [
   // Every issue that is due and not written yet, each from its edition time (site/site.ts EDITION_TIMES)
   // at the next half hour; a missed or failed one at the next run.
   { name: "reports.compose", cron: "0,30 * * * *", missed: "once", run: () => composeDueReports() },
-  // The deletions the privacy notice promises, once their retention periods are over.
+  // Remove operational data past its retention period.
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },
   // IndexNow for added, changed and removed discovery URLs, hourly so a new story or report reaches Bing,
   // and the AI answers that search it, within the hour (off unless INDEXNOW_SUBMIT_ENABLED).

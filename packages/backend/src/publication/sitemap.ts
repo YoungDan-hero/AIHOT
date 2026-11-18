@@ -5,8 +5,8 @@
 import { mkdir, readFile, stat, utimes, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { STORY_INDEX_MIN_REPORTS } from "@aihot/contracts/site";
-import { ABOUT, ACCESS, AGENT, POLICY, SITE } from "@aihot/site";
-import { config, REPO_ROOT } from "../config.ts";
+import { ABOUT, ACCESS, AGENT, SITE } from "@aihot/site";
+import { config } from "../config.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { latestHotRanking } from "./hot.ts";
 import { eventPageCondition, ITEM_FROM, thinPageCondition } from "./items.ts";
@@ -70,8 +70,6 @@ export async function loadDiscoveryEntries(at = new Date(), limits?: { urls: num
     { loc: "/monthly", revision: reportRevision("monthly"), changefreq: "monthly", priority: 0.6 },
     { loc: "/agent", revision: sha256(stableJson([SITE, ACCESS, AGENT])), changefreq: "weekly", priority: 0.7 },
     { loc: "/about", revision: sha256(stableJson(ABOUT)), changefreq: "monthly", priority: 0.5 },
-    { loc: "/terms", revision: sha256(stableJson([POLICY.terms, await readFile(path.join(REPO_ROOT, "site/pages/terms.md"), "utf8")])), changefreq: "monthly", priority: 0.4 },
-    { loc: "/privacy", revision: sha256(stableJson([POLICY.privacy, await readFile(path.join(REPO_ROOT, "site/pages/privacy.md"), "utf8")])), changefreq: "monthly", priority: 0.4 },
   );
   for (const r of reports) entries.push({ loc: `/${r.kind}/${r.key}`, lastmod: r.t, newsAt: r.changed, revision: r.revision, changefreq: "monthly", priority: 0.6 });
   // A story needs listed evidence of its own, and STORY_INDEX_MIN_REPORTS reports: with fewer its page is

@@ -41,7 +41,7 @@ flowchart LR
 
 | 位置 | 内容 |
 |---|---|
-| `site/` | 站名文案、各步骤的模型、品牌与 Logo、条款页、根目录公开文件（`public/`）和启用的模块（`site/modules/`） |
+| `site/` | 站名文案、各步骤的模型、品牌与 Logo、根目录公开文件（`public/`）和启用的模块（`site/modules/`） |
 | `industry/` | 行业包：分类标签、示范信源、提示词、门槛 |
 | `modules/` | 只属于这个站的功能，一个功能一个文件夹（见下文“模块”）；框架本身不带模块 |
 | `packages/backend/src/sources/` | 六种信源的读取器，抓取调度（`collect.ts`） |
@@ -93,6 +93,7 @@ flowchart LR
 | 地址 | 内容 |
 |---|---|
 | `/` `/all` `/hot` `/daily` `/weekly` `/monthly` | 精选、全部动态、热门事件、日报周报月报 |
+| `/sources` | 信源目录，国内信源优先，支持按名称和状态筛选并分页查看最近采集时间 |
 | `/feed.xml` `/feed/full.xml` `/feed/all.xml` `/feed/daily.xml` `/feed/weekly.xml` `/feed/monthly.xml` | RSS：精选、精选全文、全部、日报、周报、月报；另有按分类的 `/feed/category/<key>.xml` 和分类全文版 `/feed/full/category/<key>.xml` |
 | `/api/v1/` | 公开 API，文档在 `/openapi-v1.json`；给 Agent 读的 Markdown 从 `/api/v1/agent` 开始；说明页在 `/agent` |
 | `/api/mcp` | MCP 服务：最新、搜索、热点、事件、日报、周报、月报各一个工具，工具名前缀是 `site/site.ts` 的 `mcpPrefix` |

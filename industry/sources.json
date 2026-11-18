@@ -1,5 +1,5 @@
 {
-  "$comment": "短剧前线实际采集信源：1000个启用（国内721、海外279）。默认仅摘要与原文链接。",
+  "$comment": "短剧前线实际采集信源：1009个启用（国内726、海外283）。默认仅摘要与原文链接。",
   "sources": [
     {
       "id": "drama-duanju007",
@@ -57694,6 +57694,469 @@
       "tags": [
         "国内信源",
         "港澳信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "drama-yingyi-dushe",
+      "name": "独舌短剧（影艺独舌搜狐号）",
+      "kind": "web_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "config": {
+        "url": "https://m.sohu.com/media/505759",
+        "parseMode": "html",
+        "itemSelector": "a[href*=\"/a/\"][href*=\"_505759\"]",
+        "allowUrlPrefixes": [
+          "https://m.sohu.com/a/"
+        ],
+        "publishedAtUtcOffset": "+08:00",
+        "detail": {
+          "maxFetches": 4,
+          "publishedAtSelector": "meta[itemprop=\"datePublished\"]",
+          "publishedAtAuthoritative": true,
+          "titleSelector": "h1"
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "短剧",
+            "漫剧",
+            "竖屏剧",
+            "红果短剧",
+            "AI超创"
+          ]
+        },
+        "publishedAfter": "2025-11-18T00:00:00Z",
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 12
+        }
+      }
+    },
+    {
+      "id": "drama-yingshi-chanye-guancha",
+      "name": "影视产业观察",
+      "kind": "web_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "config": {
+        "url": "https://m.sohu.com/media/100097343",
+        "parseMode": "html",
+        "itemSelector": "a[href*=\"/a/\"][href*=\"_100097343\"]",
+        "allowUrlPrefixes": [
+          "https://m.sohu.com/a/"
+        ],
+        "publishedAtUtcOffset": "+08:00",
+        "detail": {
+          "maxFetches": 4,
+          "publishedAtSelector": "meta[itemprop=\"datePublished\"]",
+          "publishedAtAuthoritative": true,
+          "titleSelector": "h1"
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "微短剧",
+            "AI漫剧",
+            "AI短剧",
+            "真人短剧",
+            "竖屏剧",
+            "短剧产业",
+            "短剧创作",
+            "短剧出海",
+            "短剧平台",
+            "短剧制作",
+            "短剧行业",
+            "短剧分账",
+            "漫剧产业"
+          ]
+        },
+        "publishedAfter": "2025-11-18T00:00:00Z",
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 12
+        }
+      }
+    },
+    {
+      "id": "drama-jizhou-studio",
+      "name": "极昼工作室",
+      "kind": "json_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 240,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "config": {
+        "url": "https://api.thepaper.cn/contentapi/cont/pph/user",
+        "mode": "json_api",
+        "method": "POST",
+        "headers": {
+          "Client-Type": "1",
+          "Origin": "https://www.thepaper.cn",
+          "Referer": "https://www.thepaper.cn/user_4976063"
+        },
+        "bodyJson": {
+          "pageSize": 20,
+          "pageNum": 1,
+          "contType": 0,
+          "excludeContIds": [],
+          "pphId": "4976063",
+          "startTime": 0
+        },
+        "itemsPath": "data.list",
+        "titlePaths": [
+          "name"
+        ],
+        "urlTemplate": "https://www.thepaper.cn/newsDetail_forward_{contId}",
+        "allowUrlPrefixes": [
+          "https://www.thepaper.cn/newsDetail_forward_"
+        ],
+        "publishedAtPath": "pubTimeLong",
+        "publishedAtUnit": "epoch_ms",
+        "sortByPublishedAt": true,
+        "detail": {
+          "maxFetches": 4
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "短剧演员",
+            "短剧编剧",
+            "AI短剧",
+            "微短剧",
+            "AI漫剧",
+            "横店短剧",
+            "短剧制作人",
+            "短剧从业"
+          ]
+        },
+        "publishedAfter": "2025-11-18T00:00:00Z",
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 12
+        }
+      }
+    },
+    {
+      "id": "drama-digitaling-short-drama",
+      "name": "数英（短剧行业与营销）",
+      "kind": "web_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true,
+      "config": {
+        "url": "https://www.digitaling.com/search/articles/?kw=%E7%9F%AD%E5%89%A7",
+        "parseMode": "html",
+        "itemSelector": "h3.substr_one a[href*=\"/articles/\"], .substr_one > a[href*=\"/articles/\"]",
+        "allowUrlPrefixes": [
+          "https://www.digitaling.com/articles/"
+        ],
+        "publishedAtUtcOffset": "+08:00",
+        "publishedAfter": "2025-11-18T00:00:00Z",
+        "detail": {
+          "maxFetches": 4,
+          "publishedAtSelector": ".f_r.ft_14.flex.l_center.pd_t_1.pd_r_2 > span.inline_bk.v_m.color_969",
+          "publishedAtAuthoritative": true
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "短剧",
+            "短劇",
+            "漫剧",
+            "竖屏剧",
+            "红果",
+            "绿泡泡",
+            "ReelShort",
+            "DramaBox",
+            "NetShort"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 12
+        }
+      }
+    },
+    {
+      "id": "drama-ebrun-short-video",
+      "name": "亿邦动力（短视频）",
+      "kind": "web_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true,
+      "config": {
+        "url": "https://www.ebrun.com/label/132",
+        "parseMode": "html",
+        "itemSelector": "section.news-item",
+        "linkSelector": ".info > h3.title a",
+        "titleSelector": ".info > h3.title",
+        "publishedAtSelector": ".info .date",
+        "publishedAtUtcOffset": "+08:00",
+        "publishedAfter": "2025-11-18T00:00:00Z",
+        "allowUrlPrefixes": [
+          "https://www.ebrun.com/20",
+          "https://www.ebrun.com/ebrungo/zb/"
+        ],
+        "sortByPublishedAt": true,
+        "detail": {
+          "maxFetches": 4
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "短剧",
+            "短劇",
+            "漫剧",
+            "竖屏剧",
+            "红果",
+            "绿泡泡",
+            "短视频",
+            "视频号",
+            "创作者",
+            "达人生态",
+            "MCN",
+            "内容出海",
+            "内容营销"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 12
+        }
+      }
+    },
+    {
+      "id": "drama-deadline",
+      "name": "Deadline",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://deadline.com/tag/microdrama/feed/",
+        "acceptLanguage": "en-US,en;q=0.8",
+        "allowUrlPrefixes": [
+          "https://deadline.com/"
+        ],
+        "publishedAtUtcOffset": "+00:00",
+        "sortByPublishedAt": true,
+        "publishedAfter": "2026-08-20T00:00:00.000Z",
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "microdrama",
+            "micro-drama",
+            "micro drama",
+            "minidrama",
+            "mini-drama",
+            "short drama",
+            "short-form drama",
+            "short form drama",
+            "vertical drama",
+            "vertical series",
+            "vertical video",
+            "vertical storytelling",
+            "microseries",
+            "micro-series",
+            "ReelShort",
+            "DramaBox",
+            "DramaWave",
+            "NetShort",
+            "GoodShort",
+            "PineDrama",
+            "Vigloo"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 3
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "海外信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "drama-hollywoodreporter",
+      "name": "The Hollywood Reporter",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.hollywoodreporter.com/t/microdramas/feed/",
+        "acceptLanguage": "en-US,en;q=0.8",
+        "allowUrlPrefixes": [
+          "https://www.hollywoodreporter.com/"
+        ],
+        "publishedAtUtcOffset": "+00:00",
+        "sortByPublishedAt": true,
+        "publishedAfter": "2026-08-20T00:00:00.000Z",
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "microdrama",
+            "micro-drama",
+            "micro drama",
+            "minidrama",
+            "mini-drama",
+            "short drama",
+            "short-form drama",
+            "short form drama",
+            "vertical drama",
+            "vertical series",
+            "vertical video",
+            "vertical storytelling",
+            "microseries",
+            "micro-series",
+            "ReelShort",
+            "DramaBox",
+            "DramaWave",
+            "NetShort",
+            "GoodShort",
+            "PineDrama",
+            "Vigloo"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 3
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "海外信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "drama-variety",
+      "name": "Variety",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://variety.com/t/microdramas/feed/",
+        "acceptLanguage": "en-US,en;q=0.8",
+        "allowUrlPrefixes": [
+          "https://variety.com/"
+        ],
+        "publishedAtUtcOffset": "+00:00",
+        "sortByPublishedAt": true,
+        "publishedAfter": "2026-08-20T00:00:00.000Z",
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "microdrama",
+            "micro-drama",
+            "micro drama",
+            "minidrama",
+            "mini-drama",
+            "short drama",
+            "short-form drama",
+            "short form drama",
+            "vertical drama",
+            "vertical series",
+            "vertical video",
+            "vertical storytelling",
+            "microseries",
+            "micro-series",
+            "ReelShort",
+            "DramaBox",
+            "DramaWave",
+            "NetShort",
+            "GoodShort",
+            "PineDrama",
+            "Vigloo"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 3
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "海外信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "drama-socialmediatoday",
+      "name": "Social Media Today",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.socialmediatoday.com/feeds/news/",
+        "acceptLanguage": "en-US,en;q=0.8",
+        "allowUrlPrefixes": [
+          "https://www.socialmediatoday.com/news/"
+        ],
+        "publishedAtUtcOffset": "+00:00",
+        "sortByPublishedAt": true,
+        "publishedAfter": "2026-08-20T00:00:00.000Z",
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "YouTube Shorts",
+            "TikTok Shop",
+            "TikTok creator",
+            "TikTok's creator",
+            "TikTok monetization",
+            "TikTok affiliate",
+            "TikTok editing",
+            "Reels monetization",
+            "Instagram Reels",
+            "Facebook Reels",
+            "Reels algorithm",
+            "Reels ads",
+            "Reels analytics",
+            "products per Reel",
+            "content protection to Instagram",
+            "Instagram content protection",
+            "creator rewards program",
+            "creator fund",
+            "creator monetization",
+            "creator revenue share",
+            "short-form video",
+            "short form video",
+            "vertical video"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 2,
+          "initialBackfillMonths": 3
+        }
+      },
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "海外信源"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false

@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from "react";
 import { Form, Link, redirect, useNavigation } from "react-router";
 import { SOURCE_HEALTH_LABELS, type SourceDirectoryResponse, type SourceHealth } from "@aihot/contracts/site";
 import { beijingDate, beijingTime } from "@aihot/contracts/time";
@@ -8,6 +9,7 @@ import type { Screen } from "../components/shell/screens";
 import { Badge } from "../components/ui/Badge";
 import { buttonClass, Select } from "../components/ui/Controls";
 import { EmptyState } from "../components/ui/Page";
+import { Sheet } from "../components/ui/Sheet";
 import { Pagination } from "../features/feed/DayList";
 import { loadOr404 } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
@@ -17,6 +19,84 @@ export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-stor
 export const meta: Route.MetaFunction = () => pageMeta({ title: "信源", path: "/sources", noindex: true });
 
 const tones = { ok: "ok", degraded: "amber", failing: "hot", paused: "neutral", unknown: "neutral" } as const satisfies Record<SourceHealth, string>;
+
+function SourceFeedback() {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<"idle" | "sending" | "saved">("idle");
+  const [error, setError] = useState("");
+  const inputClass = "h-11 w-full rounded-control border border-line-strong bg-bg px-3 text-[16px] text-ink outline-none focus:border-accent";
+  const close = () => { if (state !== "sending") setOpen(false); };
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (state === "sending") return;
+    const fields = new FormData(event.currentTarget);
+    const name = String(fields.get("name") ?? "").trim();
+    const url = String(fields.get("url") ?? "").trim();
+    setError("");
+    setState("sending");
+    try {
+      const response = await fetch("/api/site/source-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, url }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        const problem = await response.json().catch(() => null);
+        setError(response.status < 500 && typeof problem?.detail === "string" ? problem.detail : "提交失败，请稍后再试。");
+        setState("idle");
+        return;
+      }
+      setState("saved");
+    } catch {
+      setError("提交失败，请稍后再试。");
+      setState("idle");
+    }
+  }
+
+  return (
+    <>
+      <div className="flex min-w-0 items-center gap-2">
+        <p id="source-feedback-hint" className="text-right text-[13px] leading-snug text-ink-2">没找到想看的信源？欢迎推荐。</p>
+        <button type="button" aria-haspopup="dialog" aria-describedby="source-feedback-hint" className={`${buttonClass()} shrink-0`} onClick={(event) => {
+          event.currentTarget.focus({ preventScroll: true });
+          setError("");
+          setState("idle");
+          setOpen(true);
+        }}>信源反馈</button>
+      </div>
+      <Sheet open={open} onClose={close} title="信源反馈" centered>
+        {state === "saved" ? (
+          <div className="space-y-4 px-5">
+            <p role="status" className="text-[14px] text-ink">信源反馈已提交。</p>
+            <div className="flex justify-end">
+              <button type="button" className={buttonClass("primary")} onClick={close}>完成</button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-3 px-5">
+            <label className="block space-y-1.5 text-[14px] text-ink">
+              <span>信源名称</span>
+              <input name="name" type="text" required readOnly={state === "sending"} maxLength={120} className={inputClass} />
+            </label>
+            <label className="block space-y-1.5 text-[14px] text-ink">
+              <span>信源链接</span>
+              <input name="url" type="url" required readOnly={state === "sending"} maxLength={2048} placeholder="https://" className={inputClass} />
+            </label>
+            {error && <p role="alert" className="text-[13px] text-ink">{error}</p>}
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" className={buttonClass()} disabled={state === "sending"} onClick={close}>取消</button>
+              <button type="submit" className={buttonClass("primary")} disabled={state === "sending"}>
+                {state === "sending" ? "提交中…" : "提交反馈"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Sheet>
+    </>
+  );
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { searchParams } = new URL(request.url);
@@ -44,8 +124,11 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
   const busy = navigation.state === "loading" && navigation.location?.pathname === "/sources";
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
-      <PhoneBar title="信源" back={{ to: "/more", label: "我的" }} large />
-      <h1 className="hidden text-[24px] font-semibold leading-[1.3] text-ink lg:block">信源</h1>
+      <PhoneBar title="信源" back={{ to: "/more", label: "我的" }} />
+      <div className="flex items-center justify-between gap-3 pb-3 pt-0.5 lg:p-0">
+        <h1 data-page-title="" className="shrink-0 text-[30px] font-bold leading-[1.25] tracking-[-0.01em] text-ink lg:text-[24px] lg:font-semibold lg:leading-[1.3]">信源</h1>
+        <SourceFeedback />
+      </div>
       <Form key={JSON.stringify(filters)} method="get" action="/sources" role="search" aria-label="筛选信源" className="flex flex-wrap items-center gap-2 lg:mt-4">
         <label className="relative w-full sm:max-w-72">
           <span className="sr-only">信源名称</span>
@@ -56,10 +139,10 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
             defaultValue={q}
             placeholder="搜索信源名称"
             maxLength={120}
-            className="h-11 w-full rounded-full border border-line-strong bg-surface pl-9 pr-3 text-[16px] text-ink outline-none transition-colors placeholder:text-ink-4 hover:border-ink-4 focus:border-accent lg:h-9 lg:text-[13.5px]"
+            className="block h-11 w-full rounded-full border border-line-strong bg-surface pl-9 pr-3 text-[16px] text-ink outline-none transition-colors placeholder:text-ink-4 hover:border-ink-4 focus:border-accent lg:h-9 lg:text-[13.5px]"
           />
         </label>
-        <Select aria-label="信源状态" name="status" defaultValue={status}>
+        <Select aria-label="信源状态" name="status" defaultValue={status} className="lg:[&>select]:h-9 lg:[&>select]:text-[13.5px]">
           <option value="">全部状态</option>
           {Object.entries(SOURCE_HEALTH_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </Select>
