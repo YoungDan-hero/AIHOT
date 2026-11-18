@@ -6,12 +6,10 @@ import { SITE } from "@aihot/site";
 import { config } from "@aihot/backend/config";
 import {
   completeLogin,
-  cookie,
   endSession,
   feishuLoginConfigured,
   LoginRejected,
   loginRedirect,
-  parseCookies,
   passwordLogin,
   SESSION_COOKIE,
   SESSION_DAYS,
@@ -19,6 +17,7 @@ import {
   STATE_COOKIE,
   type AdminPrincipal,
 } from "@aihot/backend/admin/auth";
+import { cookie, parseCookies } from "@aihot/backend/lib/http-cookies";
 import { sendProblem } from "../http/respond.ts";
 
 /**

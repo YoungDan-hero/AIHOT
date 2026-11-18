@@ -74,6 +74,7 @@ services:
       NODE_ENV: production
       API_BASE_URL: http://api:3001
       SITE_URL: ${SITE_URL:-http://localhost:3000}
+      FEISHU_EMPLOYEE_LOGIN_ENABLED: ${FEISHU_EMPLOYEE_LOGIN_ENABLED:-false}
       TRUST_PROXY: ${TRUST_PROXY:-false}
       AIHOT_RELEASE: ${AIHOT_RELEASE:-}
       WEB_HOST: 0.0.0.0

@@ -25,7 +25,7 @@ export function proxyToApi(req: IncomingMessage, res: ServerResponse, set: Outgo
     up.pipe(res);
   });
   upstream.on("error", (error) => {
-    logError(error, { msg: "api proxy request failed", method: req.method, path: req.url });
+    logError(error, { msg: "api proxy request failed", method: req.method, path: req.url?.split("?")[0] });
     res.statusCode = 502;
     res.end("api unavailable");
   });

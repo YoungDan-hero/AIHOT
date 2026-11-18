@@ -50,3 +50,29 @@ test("origin-form slashes keep the router's homepage and unknown-route semantics
   assert.equal(web.logs(), "");
   assert.ok(upstreamPaths.every((path) => path.startsWith("/api/site/")));
 });
+
+test("employee login protects documents and loader data, and passes the visitor's session to SSR", async (t) => {
+  const session = "aihot_employee=fixture";
+  const pool = { filters: { channel: "all", category: null, tag: null, q: null, tab: "time" },
+    items: [], page: 1, pageCount: 1, total: 0, todayCount: 0, freshness: "2026-11-18T00:00:00Z" };
+  const protectedApi = fakeApi((url, res, req) => {
+    if (url.pathname === "/api/employee/session") {
+      res.statusCode = req.headers.cookie === session ? 204 : 401;
+      res.end();
+    } else if (url.pathname === "/api/site/pool") {
+      assert.equal(req.headers.cookie, session);
+      return pool;
+    }
+  });
+  const privateWeb = await startWebServer(protectedApi, { FEISHU_EMPLOYEE_LOGIN_ENABLED: "true" });
+  t.after(() => privateWeb.stop());
+  const visitor = await fetch(privateWeb.origin + "/all?channel=news", { redirect: "manual" });
+  assert.equal(visitor.status, 302);
+  assert.equal(new URL(visitor.headers.get("location")!, privateWeb.origin).searchParams.get("return"), "/all?channel=news");
+  assert.match(visitor.headers.get("cache-control") ?? "", /no-store/);
+  const data = await fetch(privateWeb.origin + "/all.data", { redirect: "manual" });
+  assert.equal(data.status, 401);
+  const page = await fetch(privateWeb.origin + "/all", { headers: { cookie: session } });
+  assert.equal(page.status, 200, privateWeb.logs());
+  assert.match(page.headers.get("cache-control") ?? "", /private, no-store/);
+});

@@ -1,33 +1,42 @@
 import path from "node:path";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import { isApiOwned, resolveRedirect } from "@aihot/contracts/http-policy";
 import { DEPLOYMENT } from "@aihot/site";
 import { proxyToApi } from "./app/lib/api-proxy.server.ts";
+import { API_BASE_URL } from "./app/lib/api.server.ts";
+import { allowEmployeePage, withEmployeeCookie } from "./app/lib/employee.server.ts";
 
 /** Development stand-in for the production web server: the shared redirect table and api-owned path routing. */
 function devEdge(): Plugin {
   return {
     name: "aihot-dev-edge",
     configureServer(server) {
+      const key = "FEISHU_EMPLOYEE_LOGIN_ENABLED";
+      process.env[key] ??= loadEnv(server.config.mode, path.resolve(import.meta.dirname, "../.."), key)[key] ?? "false";
       server.middlewares.use((req, res, next) => {
         const raw = req.url ?? "/";
         const qi = raw.indexOf("?");
         const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
         const search = qi >= 0 ? raw.slice(qi) : "";
-        if (pathname.startsWith("/@") || pathname.startsWith("/node_modules/") || pathname.startsWith("/app/") || pathname.startsWith("/__")) return next();
-        const decision = resolveRedirect(pathname, search);
-        if (decision) {
-          for (const [k, v] of Object.entries(decision.headers)) res.setHeader(k, v);
-          if (decision.location) res.setHeader("Location", decision.location);
-          res.statusCode = decision.status;
-          return res.end();
-        }
-        if (!isApiOwned(pathname)) return next();
-        // The api sees the Host it gets in production.
-        if (DEPLOYMENT.originHost) req.headers.host = DEPLOYMENT.originHost;
-        proxyToApi(req, res);
+        const apiOwned = isApiOwned(pathname);
+        const route = async () => {
+          if (!apiOwned && !(await allowEmployeePage(req, res, API_BASE_URL))) return;
+          if (pathname.startsWith("/@") || pathname.startsWith("/node_modules/") || pathname.startsWith("/app/") || pathname.startsWith("/__")) return withEmployeeCookie(req, next);
+          const decision = resolveRedirect(pathname, search);
+          if (decision) {
+            for (const [k, v] of Object.entries(decision.headers)) res.setHeader(k, v);
+            if (decision.location) res.setHeader("Location", decision.location);
+            res.statusCode = decision.status;
+            return res.end();
+          }
+          if (!apiOwned) return withEmployeeCookie(req, next);
+          // The api sees the Host it gets in production.
+          if (DEPLOYMENT.originHost) req.headers.host = DEPLOYMENT.originHost;
+          proxyToApi(req, res);
+        };
+        void route().catch(next);
       });
     },
   };
@@ -37,7 +46,7 @@ export default defineConfig({
   plugins: [devEdge(), tailwindcss(), reactRouter()],
   // The modules' pages import the engine's web code by this name (tsconfig.json paths).
   resolve: { alias: { "@aihot/web/": `${path.resolve(import.meta.dirname, "app")}/` } },
-  server: { port: 3000, strictPort: true },
+  server: { port: 3000, strictPort: true, fs: { deny: [".env", ".env.*", "*.{crt,pem,key}", "**/.git/**", "**/.data/**"] } },
   build: {
     rolldownOptions: {
       output: {

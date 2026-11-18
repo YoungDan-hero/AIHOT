@@ -9,8 +9,9 @@ import { pathToFileURL } from "node:url";
 import { createRequestListener } from "@react-router/node";
 import type { ServerBuild } from "react-router";
 import { isApiOwned, resolveRedirect } from "@aihot/contracts/http-policy";
-import { BROWSER_MAX_SECONDS } from "./app/lib/api.server.ts";
+import { API_BASE_URL, BROWSER_MAX_SECONDS } from "./app/lib/api.server.ts";
 import { proxyToApi } from "./app/lib/api-proxy.server.ts";
+import { allowEmployeePage, withEmployeeCookie } from "./app/lib/employee.server.ts";
 import { logError } from "./app/lib/errors.server.ts";
 
 const PORT = Number(process.env.WEB_PORT || 3000);
@@ -142,6 +143,8 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   const qi = raw.indexOf("?");
   const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
   const search = qi >= 0 ? raw.slice(qi) : "";
+  const apiOwned = isApiOwned(pathname);
+  if (!apiOwned && !(await allowEmployeePage(req, res, API_BASE_URL))) return;
 
   const decision = resolveRedirect(pathname, search);
   if (decision) {
@@ -151,7 +154,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
     return res.end(decision.location ? undefined : decision.status === 410 ? "Gone" : "Not found");
   }
 
-  if (isApiOwned(pathname)) {
+  if (apiOwned) {
     // The visitor's address, decided here: the one the trusted proxy saw (the last X-Forwarded-For
     // entry), or this connection's own. Both headers carry only that.
     const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((v) => v.trim()).filter(Boolean);
@@ -161,7 +164,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
 
   if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(pathname, res))) return;
   pageResponse(req, res);
-  return ssr(req, res);
+  return withEmployeeCookie(req, () => ssr(req, res));
 }
 
 process.on("unhandledRejection", (reason) => {

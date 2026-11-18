@@ -9,6 +9,7 @@ import { serverModules } from "@aihot/backend/modules";
 import { registerSite } from "./routes/site.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
+import { registerEmployeeAuth } from "./routes/employee-auth.ts";
 import { registerAdmin } from "./routes/admin.ts";
 import { registerIngest } from "./routes/ingest.ts";
 import { registerV1, registerV1Fallbacks } from "./routes/v1.ts";
@@ -66,6 +67,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
     for (const m of serverModules()) m.on?.requestAnswered?.(req, reply, path);
   });
+
+  registerEmployeeAuth(app);
 
   // Central redirect table (shared with the web server).
   app.addHook("onRequest", async (req, reply) => {

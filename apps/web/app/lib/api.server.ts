@@ -2,6 +2,7 @@
 // process never touches the database; SSR reads the api over loopback with keep-alive, one or two
 // requests per page.
 import { data, redirect, type HeadersArgs } from "react-router";
+import { employeeCookie, employeeLoginEnabled } from "./employee.server.ts";
 import { logError } from "./errors.server.ts";
 
 /** Where the api listens (API_BASE_URL, set by the deployment); development uses the default. */
@@ -22,8 +23,9 @@ class ApiError extends Error {
 
 export async function apiGet<T>(path: string, init?: { signal?: AbortSignal; headers?: Record<string, string>; responseHeaders?: Headers }): Promise<T> {
   try {
+    const cookie = employeeCookie();
     const res = await fetch(`${API_BASE_URL}${path}`, {
-      headers: { accept: "application/json", "x-aihot-ssr": "1", ...init?.headers },
+      headers: { accept: "application/json", "x-aihot-ssr": "1", ...init?.headers, ...(cookie ? { cookie } : {}) },
       redirect: "manual",
       signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
     });
@@ -77,6 +79,9 @@ export function edgeTtl(seconds: number): Record<string, string> {
  * Time the page already spent in a cache is used up, and a revisit never renews it. Pair it with `pageHeaders`.
  */
 export function cachedPage<T extends object>(seconds: number, value: T, upstream?: Headers) {
+  if (employeeLoginEnabled()) {
+    return data({ ...value, expiresAt: 0 }, { headers: { "Cache-Control": "private, no-store", "X-Accel-Expires": "0" } });
+  }
   const now = Date.now();
   const second = Math.floor(now / 1000);
   let deadline = second + seconds;

@@ -270,6 +270,14 @@ docker compose logs -f --tail 100 api worker web
 
 后台的“运行”页能看到每个定时任务最近的结果，“信源”页能看到每个信源的抓取状况。
 
+### 飞书员工登录
+
+1. 在飞书开放平台的自建应用里添加「网页应用」，将主页设为站点的 `SITE_URL`。在「安全设置」的重定向 URL 里添加 `${SITE_URL}/api/employee/callback`。本机调试地址为 `http://localhost:3000/api/employee/callback`，员工使用可访问的 HTTPS 站点地址。
+2. 将应用的可用范围设为重庆麦芽传媒有限公司的员工，在 `.env` 中填写 `FEISHU_EMPLOYEE_APP_ID`、`FEISHU_EMPLOYEE_APP_SECRET` 和已核实的 `FEISHU_EMPLOYEE_TENANT_KEY`。使用至少 32 字符的随机 `SESSION_SECRET`，开启 `FEISHU_EMPLOYEE_LOGIN_ENABLED=true`，然后重启 API 和网页进程。
+3. 从飞书工作台或浏览器打开站点，未登录时应直接进入飞书授权流程，授权后返回原页面。再用未登录的窗口直接访问 `/api/site/pool`，应返回 401。启用前曾缓存公开内容的反向代理或 CDN 需要清理旧缓存。
+
+网站会话有效期为两小时。文章、日报、资讯 API、RSS 和 MCP 均要求员工会话，后台仍需管理员账号。开发测试使用本机回调。员工工作台使用部署后的 HTTPS 地址，并登记对应的回调 URL。
+
 ### 管理员会话与配置变更
 
 会话绑定登录方式、登录时的管理员凭据或飞书身份。修改管理员密码、飞书管理员名单或会话密钥后，应重启所有 API 进程，使它们加载相同的新配置；只编辑配置文件不代表正在运行的进程已生效，混用旧代码或旧配置的进程不能提供统一撤权。
