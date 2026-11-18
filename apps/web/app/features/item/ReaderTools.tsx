@@ -73,7 +73,7 @@ export function ReaderToolbar({ item, originalUrl, originalLabel, onOutline, onS
       <div className={`mx-auto grid h-[50px] max-w-[640px] ${onOutline ? "grid-cols-4" : "grid-cols-3"}`}>
         <Tool
           pressed={star.on}
-          onClick={star.toggle}
+          onClick={star.disabled ? undefined : star.toggle}
           label={star.on ? "已收藏" : "收藏"}
           icon={
             <span key={star.pulse} className={`flex ${star.pulse ? "anim-bump" : ""}`}>

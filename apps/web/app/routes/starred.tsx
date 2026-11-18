@@ -7,6 +7,7 @@ import { Presence } from "../components/ui/Presence";
 import { edgeTtl } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { exportBundle, importBundle, removeStar, useStarred, type ImportReport } from "../lib/local-state";
+import { useAccountStarred } from "../lib/account-starred";
 import { fullDateTime } from "../lib/format";
 import { IconBookmark, IconDownload, IconClose } from "../components/icons";
 import { readSnapshot, restoreAnchor, useSaveOnLeave } from "../lib/restore";
@@ -21,7 +22,7 @@ export function headers() {
 }
 
 export function meta() {
-  return pageMeta({ title: "我的收藏", description: `保存在这台设备上的 ${SITE.name} 收藏。`, path: "/starred", noindex: true });
+  return pageMeta({ title: "我的收藏", description: `${SITE.name} 收藏。`, path: "/starred", noindex: true });
 }
 
 function reportText(r: ImportReport): string {
@@ -34,14 +35,18 @@ function reportText(r: ImportReport): string {
 }
 
 export default function StarredPage() {
-  const starred = useStarred();
+  const account = useAccountStarred();
+  const localStarred = useStarred(!account);
+  const starred = account ? account.items ?? [] : localStarred;
   const [mounted, setMounted] = useState(false);
   const [availability, setAvailability] = useState<Record<string, ItemAvailability>>({});
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => setMounted(true), []);
+  const refresh = account?.refresh;
+  useEffect(() => { void refresh?.(); }, [refresh]);
 
-  const starredIds = starred.map((s) => s.id).join(",");
+  const starredIds = localStarred.map((s) => s.id).join(",");
   useEffect(() => {
     if (!mounted || !starredIds) return;
     const controller = new AbortController();
@@ -61,14 +66,13 @@ export default function StarredPage() {
     return () => controller.abort();
   }, [mounted, starredIds]);
 
-  // Back from an item: the list renders only after mounting (it lives in this browser), so the
-  // position comes back once it is there, by the same card anchor the other lists use.
+  // Back from an item, restore after the cards are ready.
   const historyKey = useLocation().key;
   useLayoutEffect(() => {
     if (!mounted || starred.length === 0) return;
     const snap = readSnapshot<null>(historyKey);
     if (snap) restoreAnchor(snap.anchor, snap.scrollY);
-  }, [mounted, historyKey]);
+  }, [mounted, historyKey, starred.length > 0]);
   useSaveOnLeave(historyKey, () => null);
 
   const doExport = () => {
@@ -104,9 +108,9 @@ export default function StarredPage() {
       <header className="flex flex-col gap-2 pb-4 pt-3 sm:flex-row sm:items-start sm:justify-between lg:pt-1">
         <div>
           <h1 data-page-title="" className="text-[24px] font-semibold leading-[1.3] text-ink">收藏</h1>
-          <p className="mt-1.5 text-[13px] text-ink-3">{`本机收藏的 ${SITE.name} 内容，适合稍后阅读和回看。`}</p>
+          <p className="mt-1.5 text-[13px] text-ink-3">{account ? "收藏随飞书账号同步，电脑和手机上的收藏一致。" : `本机收藏的 ${SITE.name} 内容，适合稍后阅读和回看。`}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:pt-1.5">
+        {!account && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:pt-1.5">
           {webModules().flatMap((m) => m.starredImports ?? []).map((i) => (
             <button key={i.label} type="button" onClick={() => importFrom(i.run)} className={action}>
               {i.label}
@@ -121,9 +125,15 @@ export default function StarredPage() {
             </button>
           )}
           <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => doImport(e.target.files?.[0])} />
-        </div>
+        </div>}
       </header>
-      <p className="rounded-tile border border-line bg-surface px-4 py-2.5 text-[12.5px] text-ink-3">不用登录，收藏直接存在这个浏览器里；清除浏览器数据或换设备都不会同步，换设备前可以先导出备份。</p>
+      {!account && <p className="rounded-tile border border-line bg-surface px-4 py-2.5 text-[12.5px] text-ink-3">不用登录，收藏直接存在这个浏览器里；清除浏览器数据或换设备都不会同步，换设备前可以先导出备份。</p>}
+      {account?.loadError && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-tile border border-line bg-surface px-4 py-2.5 text-[13px] text-ink-3">
+          {account.loadError}
+          <button type="button" onClick={() => void account.refresh()} className="shrink-0 text-accent hover:underline">重试</button>
+        </div>
+      )}
       <Presence show={!!notice} enter="anim-notice-in" exit="anim-fade-out" duration={160}>
         <div
           role="status"
@@ -135,7 +145,9 @@ export default function StarredPage() {
           </button>
         </div>
       </Presence>
-      {!mounted ? null : starred.length === 0 ? (
+      {!mounted ? null : account && account.items === null ? (
+        !account.loadError && <p role="status" className="py-5 text-[13px] text-ink-3">正在加载收藏…</p>
+      ) : starred.length === 0 ? (
         <div className="mt-3 flex flex-col items-center rounded-card border border-dashed border-line-strong px-6 py-12 text-center">
           <IconBookmark size={20} className="text-ink-4" />
           <p className="mt-3 text-[13px] text-ink-3">还没有收藏内容。点开任意一条内容，在详情页点击收藏即可添加。</p>
@@ -147,7 +159,7 @@ export default function StarredPage() {
         <ul className="mt-3 lg:space-y-3">
           {starred.map((s) => {
             const current = availability[s.id];
-            const status = current?.status;
+            const status = "status" in s ? s.status : current?.status;
             const unavailable = status === "unavailable";
             return (
               <li key={s.id} data-card-key={s.id} className={`relative border-b border-line-soft py-4 lg:card lg:px-[18px] lg:py-[15px] ${unavailable ? "opacity-70" : "lg:card-hover"}`}>
@@ -157,7 +169,7 @@ export default function StarredPage() {
                   <span className="ml-auto hidden shrink-0 sm:inline">
                     收藏于 <span className="num">{fullDateTime(s.savedAt)}</span>
                   </span>
-                  <button type="button" aria-label="取消收藏" title="取消收藏" onClick={() => removeStar(s.id)} className="relative z-10 -my-1 ml-auto grid size-7 shrink-0 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink sm:ml-0">
+                  <button type="button" aria-label="取消收藏" title="取消收藏" disabled={account?.pending.has(s.id)} onClick={() => account ? void account.remove(s.id) : removeStar(s.id)} className="relative z-10 -my-1 ml-auto grid size-7 shrink-0 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink disabled:opacity-40 sm:ml-0">
                     <IconClose size={14} />
                   </button>
                 </div>
@@ -171,7 +183,7 @@ export default function StarredPage() {
                   )}
                 </h2>
                 {s.summary && <p className="mt-1.5 line-clamp-2 text-[14px] leading-[1.75] text-ink-3">{shortAddresses(s.summary)}</p>}
-                {unavailable && <p className="mt-2 text-[12.5px] text-hot">这条内容已经下架，收藏会一直保留，直到你手动移除。</p>}
+                {unavailable && <p className="mt-2 text-[12.5px] text-hot">{account ? "这条内容目前无法查看，你仍可取消收藏。" : "这条内容已经下架，收藏会一直保留，直到你手动移除。"}</p>}
                 {status === "summary-only" && <p className="mt-2 text-[12.5px] text-amber-ink">应来源方要求，这条内容现在只提供摘要。</p>}
               </li>
             );

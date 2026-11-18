@@ -1,13 +1,17 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { safeReturn } from "@aihot/contracts/admin";
+import type { EmployeeStarredResponse } from "@aihot/contracts/site";
+import { ARTICLE_ID_PATTERN } from "@aihot/contracts/taxonomy";
 import { config, credential } from "@aihot/backend/config";
 import { cookie, parseCookies } from "@aihot/backend/lib/http-cookies";
+import { loadEmployeeStars, removeEmployeeStar, saveEmployeeStar } from "@aihot/backend/publication/employee-starred";
 
 const LOGIN = "/api/employee/login";
 const CALLBACK = "/api/employee/callback";
 const SESSION = "/api/employee/session";
 const LOGOUT = "/api/employee/logout";
+const STARRED = "/api/employee/starred";
 const STATE_AGE = 300;
 const SESSION_AGE = 2 * 60 * 60;
 
@@ -62,6 +66,11 @@ export function registerEmployeeAuth(app: FastifyInstance): void {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString()) as T;
     return data.expires > Date.now() ? data : null;
   };
+  const employeeSession = (header: string | undefined) => read<Session>("session", parseCookies(header)[sessionCookie]);
+  const accountKey = (header: string | undefined) => {
+    const session = employeeSession(header);
+    return session ? createHash("sha256").update(JSON.stringify([appId, tenant, session.user])).digest("hex") : null;
+  };
 
   // Every data route, including direct API requests, shares this gate. Ingest keeps its own token check.
   app.addHook("onRequest", async (req, reply) => {
@@ -69,7 +78,7 @@ export function registerEmployeeAuth(app: FastifyInstance): void {
     if ((req.method === "GET" || req.method === "HEAD")
         && (pathname === LOGIN || pathname === CALLBACK || pathname === "/api/health")) return;
     if (req.method === "POST" && pathname === "/api/ingest/items") return;
-    if (!read<Session>("session", parseCookies(req.headers.cookie)[sessionCookie])) {
+    if (!employeeSession(req.headers.cookie)) {
       return reply.code(401).send({ error: "employee_login_required" });
     }
   });
@@ -86,7 +95,7 @@ export function registerEmployeeAuth(app: FastifyInstance): void {
   app.get<ReturnQuery>(LOGIN, { exposeHeadRoute: false }, async (req, reply) => {
     const target = safeReturn(req.query.return || "/");
     if (req.headers.host !== origin.host) return reply.redirect(origin.origin + LOGIN + "?" + new URLSearchParams({ return: target }));
-    if (read<Session>("session", parseCookies(req.headers.cookie)[sessionCookie])) return reply.redirect(target);
+    if (employeeSession(req.headers.cookie)) return reply.redirect(target);
     const state = randomBytes(24).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
     const flow = sign("flow", { expires: Date.now() + STATE_AGE * 1000, state, verifier, target });
@@ -136,6 +145,30 @@ export function registerEmployeeAuth(app: FastifyInstance): void {
     }
   });
   app.get(SESSION, async (_req, reply) => reply.code(204).send());
+  app.get(STARRED, async (req, reply) => {
+    const account = accountKey(req.headers.cookie);
+    if (!account) return reply.code(401).send({ error: "employee_login_required" });
+    return { items: await loadEmployeeStars(account) } satisfies EmployeeStarredResponse;
+  });
+  app.route<{ Params: { id: string } }>({
+    method: ["PUT", "DELETE"],
+    url: `${STARRED}/:id`,
+    async handler(req, reply) {
+      const account = accountKey(req.headers.cookie);
+      if (!account) return reply.code(401).send({ error: "employee_login_required" });
+      if (req.headers.origin !== origin.origin) return reply.code(403).send({ error: "forbidden" });
+      const { id } = req.params;
+      if (!ARTICLE_ID_PATTERN.test(id)) return reply.code(400).send({ error: "invalid_article_id" });
+      if (req.method === "DELETE") {
+        await removeEmployeeStar(account, id);
+      } else {
+        const result = await saveEmployeeStar(account, id);
+        if (result === "not_found") return reply.code(404).send({ error: "article_not_found" });
+        if (result === "full") return reply.code(409).send({ error: "favorites_limit_reached" });
+      }
+      return reply.code(204).send();
+    },
+  });
   app.post(LOGOUT, async (req, reply) => {
     if (req.headers.origin !== origin.origin) return reply.code(403).send({ error: "forbidden" });
     return reply.header("Set-Cookie", cookie(sessionCookie, "", 0, secure))

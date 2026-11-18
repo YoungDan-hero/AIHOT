@@ -441,6 +441,17 @@ export interface ItemAvailability {
   sourceName?: string;
 }
 
+export interface EmployeeStarredItem extends Pick<ItemSummary, "id" | "title" | "summary" | "publishedAt" | "score"> {
+  sourceName: string;
+  savedAt: string;
+  aiSelected: boolean;
+  status: ItemAvailability["status"];
+}
+
+export interface EmployeeStarredResponse {
+  items: EmployeeStarredItem[];
+}
+
 /** An issue in the archive and the calendar, numbered in its whole series; closed daily months omit their titles. */
 export interface ReportNavigationEntry { key: string; issueNumber: number; title?: string | null; count?: number }
 

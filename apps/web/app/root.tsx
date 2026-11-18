@@ -15,6 +15,8 @@ import { SearchOverlay } from "./features/search/SearchOverlay";
 import { BackToTop, NavigationProgress } from "./components/shell/Chrome";
 import { buttonClass } from "./components/ui/Controls";
 import { APPEARANCE_BOOT_SCRIPT, DEFAULT_THEME, THEME_COLOR, useAppearanceSync } from "./lib/local-state";
+import { AccountStarredProvider } from "./lib/account-starred";
+import { employeeLoginEnabled } from "./lib/employee.server";
 import { useHydratedFlag } from "./lib/hydration";
 import { titled } from "./lib/seo";
 import { webModules } from "./site-modules";
@@ -29,7 +31,7 @@ export const links: Route.LinksFunction = () => [
 
 /** The release rendering this document: once a newer one is deployed, a render error reloads the page (entry.client). */
 export function loader() {
-  return { release: process.env.AIHOT_RELEASE ?? null };
+  return { release: process.env.AIHOT_RELEASE ?? null, employeeLogin: employeeLoginEnabled() };
 }
 
 export const shouldRevalidate: ShouldRevalidateFunction = () => false;
@@ -103,6 +105,7 @@ function SiteShell({ children }: { children: ReactNode }) {
 export default function App() {
   useHydratedFlag();
   useAppearanceSync();
+  const site = useRouteLoaderData<typeof loader>("root");
   const { pathname } = useLocation();
   usePageTransition();
   // iOS Safari only shows :active (pressed) styles once the document listens for touches.
@@ -113,7 +116,7 @@ export default function App() {
   }, []);
   // The admin has its own chrome.
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return <Outlet />;
-  return (
+  const content = (
     <>
       <SiteShell>
         <Outlet />
@@ -121,6 +124,7 @@ export default function App() {
       {webModules().map((m) => m.root?.Bottom && <m.root.Bottom key={m.name} />)}
     </>
   );
+  return site?.employeeLogin ? <AccountStarredProvider>{content}</AccountStarredProvider> : content;
 }
 
 export function ErrorBoundary() {

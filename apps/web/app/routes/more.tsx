@@ -7,6 +7,7 @@ import { edgeTtl } from "../lib/api.server";
 import { webModules } from "../site-modules";
 import { pageMeta } from "../lib/seo";
 import { setFontPreference, useFontPreference, useStarred } from "../lib/local-state";
+import { useAccountStarred } from "../lib/account-starred";
 import { Select } from "../components/ui/Controls";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
 import { Filings } from "../components/shell/Filings";
@@ -61,9 +62,12 @@ function RowLink({ row }: { row: Row }) {
 }
 
 export default function MorePage() {
-  const starred = useStarred();
+  const account = useAccountStarred();
+  const localStarred = useStarred(!account);
+  const starredCount = account ? account.items?.length ?? 0 : localStarred.length;
   const font = useFontPreference();
-  // The count is this browser's: shown once the page runs here, never in the shared server copy.
+  const refresh = account?.refresh;
+  useEffect(() => { void refresh?.(); }, [refresh]);
   const [here, setHere] = useState(false);
   useEffect(() => setHere(true), []);
   return (
@@ -72,7 +76,7 @@ export default function MorePage() {
       <h1 className="hidden pb-4 pt-1 text-[22px] font-bold text-ink lg:block">我的</h1>
       <div className="wide:grid wide:grid-cols-2 wide:items-start wide:gap-x-4 2xl:grid-cols-3">
         <Group>
-          <RowLink row={{ to: "/starred", label: "收藏", icon: <IconBookmark size={20} />, detail: here && starred.length > 0 ? <span className="num">{starred.length}</span> : undefined }} />
+          <RowLink row={{ to: "/starred", label: "收藏", icon: <IconBookmark size={20} />, detail: here && starredCount > 0 ? <span className="num">{starredCount}</span> : undefined }} />
           <li className="flex min-h-[56px] items-center gap-3 px-4 text-[16px] font-medium text-ink">
             <span className="text-ink-3">
               <IconMoon size={20} />

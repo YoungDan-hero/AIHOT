@@ -6,6 +6,7 @@ import { SourceAvatar } from "../../components/ui/SourceAvatar";
 import { Lightbox } from "../../components/ui/Lightbox";
 import { Picture } from "../../components/ui/Picture";
 import { toggleStar, useIsStarred } from "../../lib/local-state";
+import { useAccountStarred } from "../../lib/account-starred";
 
 /** The source's name, or, for X, avatar + display name + @handle. */
 /** The text colour of a report: grey once this browser has opened it, so the unread ones stand out. */
@@ -57,35 +58,45 @@ export function MediaThumbs({ media, className = "" }: { media: MediaView[]; cla
 
 type Starrable = Pick<FeedItemSummary, "id" | "title" | "summary" | "source" | "publishedAt" | "score" | "selected">;
 
-/** Whether an item is in this browser's 收藏, a toggle, and a counter that bumps when it is added. */
+/** Whether an item is in 收藏, a toggle, and a counter that bumps when it is added. */
 export function useStar(item: Starrable) {
-  const on = useIsStarred(item.id);
+  const account = useAccountStarred();
+  const localOn = useIsStarred(item.id, !account);
+  const on = account ? account.items?.some((s) => s.id === item.id) ?? false : localOn;
+  const disabled = !!account && (account.items === null || account.pending.has(item.id));
   const [pulse, setPulse] = useState(0);
-  const toggle = () => {
-    const added = toggleStar({
+  const toggle = async () => {
+    if (disabled) return;
+    const savedItem = {
       id: item.id, title: item.title, summary: item.summary, sourceName: item.source.name,
       publishedAt: item.publishedAt, score: item.score, aiSelected: item.selected,
-    });
+    };
+    if (account && on) {
+      await account.remove(item.id);
+      return;
+    }
+    const added = account ? await account.save(savedItem) : toggleStar(savedItem);
     if (added) setPulse((p) => p + 1);
   };
-  return { on, toggle, pulse };
+  return { on, toggle, pulse, disabled };
 }
 
-/** Bookmark toggle kept in this browser (收藏): 26px, or sized by `className`. */
+/** Bookmark toggle (收藏): 26px, or sized by `className`. */
 export function StarButton({ item, className = "size-[26px]" }: { item: Starrable; className?: string }) {
-  const { on, toggle, pulse } = useStar(item);
+  const { on, toggle, pulse, disabled } = useStar(item);
   return (
     <button
       type="button"
+      disabled={disabled}
       aria-pressed={on}
       aria-label={on ? "取消收藏" : "收藏"}
       title={on ? "取消收藏" : "收藏"}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        toggle();
+        void toggle();
       }}
-      className={`relative z-10 inline-flex shrink-0 items-center justify-center rounded-control transition-colors duration-150 ${on ? "text-accent" : "text-ink-4 hover:bg-bg-sunk hover:text-ink-2"} ${className}`}
+      className={`relative z-10 inline-flex shrink-0 items-center justify-center rounded-control transition-colors duration-150 disabled:opacity-40 ${on ? "text-accent" : "text-ink-4 hover:bg-bg-sunk hover:text-ink-2"} ${className}`}
     >
       <span key={pulse} className={`flex ${pulse ? "anim-bump" : ""}`}>
         <IconBookmark size={16} filled={on} />

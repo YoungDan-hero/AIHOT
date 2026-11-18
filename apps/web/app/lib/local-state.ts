@@ -472,13 +472,16 @@ export { mergeLocalData };
 // React hooks
 const EMPTY_STARRED: LocalStarredItem[] = [];
 const EMPTY_SET = new Set<string>();
+const getEmptyStarred = () => EMPTY_STARRED;
+const isNeverStarred = () => false;
+const doNotSubscribe = () => () => {};
 
-export function useStarred(): LocalStarredItem[] {
-  return useSyncExternalStore(subscribeStarred, getStarred, () => EMPTY_STARRED);
+export function useStarred(enabled = true): LocalStarredItem[] {
+  return useSyncExternalStore(enabled ? subscribeStarred : doNotSubscribe, enabled ? getStarred : getEmptyStarred, getEmptyStarred);
 }
 
-export function useIsStarred(id: string): boolean {
-  return useSyncExternalStore(subscribeStarred, () => isStarred(id), () => false);
+export function useIsStarred(id: string, enabled = true): boolean {
+  return useSyncExternalStore(enabled ? subscribeStarred : doNotSubscribe, enabled ? () => isStarred(id) : isNeverStarred, isNeverStarred);
 }
 
 export function useReadSet(): Set<string> {

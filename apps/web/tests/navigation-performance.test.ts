@@ -180,6 +180,7 @@ test("source feedback keeps the current directory page and preserves fields afte
     const opener = page.getByRole("button", { name: "信源反馈" });
     await opener.click();
     const dialog = page.getByRole("dialog", { name: "信源反馈" });
+    await expect(dialog.getByText("通知路飞 · 飞书卡片", { exact: true })).toBeVisible();
     const name = dialog.getByLabel("信源名称");
     const link = dialog.getByLabel("信源链接");
     await name.fill("新信源");

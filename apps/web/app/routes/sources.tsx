@@ -84,6 +84,7 @@ function SourceFeedback() {
               <span>信源链接</span>
               <input name="url" type="url" required readOnly={state === "sending"} maxLength={2048} placeholder="https://" className={inputClass} />
             </label>
+            <p className="text-[13px] leading-snug text-ink-2">通知路飞 · 飞书卡片</p>
             {error && <p role="alert" className="text-[13px] text-ink">{error}</p>}
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" className={buttonClass()} disabled={state === "sending"} onClick={close}>取消</button>
