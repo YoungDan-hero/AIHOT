@@ -10,34 +10,50 @@ const API = "https://open.feishu.cn/open-apis";
 
 export const feishuInternalEnabled = () => process.env.FEISHU_INTERNAL_ENABLED === "true";
 
-let tokenCache: { token: string; expires: number } | null = null;
+const tenantTokens = new Map<string, { token: string; expires: number }>();
 
-async function tenantToken(): Promise<string> {
-  if (tokenCache && tokenCache.expires > Date.now() + 60_000) return tokenCache.token;
-  const appId = credential("integrations", "FEISHU_APP_ID");
-  const appSecret = credential("integrations", "FEISHU_APP_SECRET");
+async function tenantToken(appId: string | null, appSecret: string | null): Promise<string> {
   if (!appId || !appSecret) throw new Error("Feishu message app is not configured");
+  const cached = tenantTokens.get(appId);
+  if (cached && cached.expires > Date.now() + 60_000) return cached.token;
   const res = await fetch(`${API}/auth/v3/tenant_access_token/internal`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+    redirect: "error",
     signal: AbortSignal.timeout(15_000),
   });
-  const json = (await res.json()) as { code: number; tenant_access_token?: string; expire?: number; msg?: string };
-  if (json.code !== 0 || !json.tenant_access_token) throw new Error(`feishu token: ${json.msg}`);
-  tokenCache = { token: json.tenant_access_token, expires: Date.now() + (json.expire ?? 3600) * 1000 };
-  return tokenCache.token;
+  const json = await res.json().catch(() => null) as { code?: number; tenant_access_token?: string; expire?: number } | null;
+  if (!res.ok || json?.code !== 0 || !json.tenant_access_token) throw new Error(`Feishu tenant token rejected (HTTP ${res.status}, code ${json?.code ?? "unknown"})`);
+  tenantTokens.set(appId, { token: json.tenant_access_token, expires: Date.now() + (json.expire ?? 3600) * 1000 });
+  return json.tenant_access_token;
 }
 
 async function sendTextToChat(chatId: string, text: string): Promise<void> {
+  const token = await tenantToken(credential("integrations", "FEISHU_APP_ID"), credential("integrations", "FEISHU_APP_SECRET"));
   const res = await fetch(`${API}/im/v1/messages?receive_id_type=chat_id`, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${await tenantToken()}` },
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ receive_id: chatId, msg_type: "text", content: JSON.stringify({ text }) }),
     signal: AbortSignal.timeout(20_000),
   });
   const json = (await res.json()) as { code: number; msg?: string };
   if (json.code !== 0) throw new Error(`feishu send: ${json.msg}`);
+}
+
+export async function sendEmployeeCard(unionId: string, card: unknown, uuid: string): Promise<void> {
+  const token = await tenantToken(credential("integrations", "FEISHU_EMPLOYEE_APP_ID"), credential("integrations", "FEISHU_EMPLOYEE_APP_SECRET"));
+  const res = await fetch(`${API}/im/v1/messages?receive_id_type=union_id`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify({ receive_id: unionId, msg_type: "interactive", content: JSON.stringify(card), uuid }),
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
+  });
+  const json = await res.json().catch(() => null) as { code?: number; data?: { message_id?: string } } | null;
+  if (!res.ok || json?.code !== 0 || !json.data?.message_id) {
+    throw new Error(`Feishu employee card rejected (HTTP ${res.status}, code ${json?.code ?? "unknown"})`);
+  }
 }
 
 // Operations alerts

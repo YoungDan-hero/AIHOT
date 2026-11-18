@@ -12,7 +12,7 @@ import { loadStoryFollowups } from "@aihot/backend/publication/followups";
 import { loadGroupReports } from "@aihot/backend/publication/groups";
 import { hotSearchLinks, loadHotStrip } from "@aihot/backend/publication/hot";
 import { loadContact, loadMakerAvatar } from "@aihot/backend/site/contact";
-import { saveSourceSuggestion } from "@aihot/backend/site/source-suggestions";
+import { saveSourceSuggestion, sourceFeedbackRecipient } from "@aihot/backend/site/source-suggestions";
 import { loadSiteStats } from "@aihot/backend/site/stats";
 import { itemAvailability } from "@aihot/backend/publication/availability";
 import { loadSourceDirectory } from "@aihot/backend/publication/sources";
@@ -125,7 +125,8 @@ export function registerSite(app: FastifyInstance) {
     const requestedPage = Number(q.page);
     const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
     const directory = await loadSourceDirectory({ q: (q.q ?? "").trim().slice(0, 120), status: status as SourceHealth | null, page });
-    return reply.header("Cache-Control", "no-store").send(directory);
+    const feedbackRecipient = sourceFeedbackRecipient();
+    return reply.header("Cache-Control", "no-store").send(feedbackRecipient ? { ...directory, feedbackRecipient } : directory);
   }));
 
   const suggestionsByIp = new Map<string, number>();

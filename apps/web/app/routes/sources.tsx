@@ -3,7 +3,7 @@ import { Form, Link, redirect, useNavigation } from "react-router";
 import { SOURCE_HEALTH_LABELS, type SourceDirectoryResponse, type SourceHealth } from "@aihot/contracts/site";
 import { beijingDate, beijingTime } from "@aihot/contracts/time";
 import type { Route } from "./+types/sources";
-import { IconSearch } from "../components/icons";
+import { IconExternal, IconSearch } from "../components/icons";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import type { Screen } from "../components/shell/screens";
 import { Badge } from "../components/ui/Badge";
@@ -20,7 +20,7 @@ export const meta: Route.MetaFunction = () => pageMeta({ title: "信源", path: 
 
 const tones = { ok: "ok", degraded: "amber", failing: "hot", paused: "neutral", unknown: "neutral" } as const satisfies Record<SourceHealth, string>;
 
-function SourceFeedback() {
+function SourceFeedback({ recipient }: { recipient: SourceDirectoryResponse["feedbackRecipient"] }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "saved">("idle");
   const [error, setError] = useState("");
@@ -84,7 +84,22 @@ function SourceFeedback() {
               <span>信源链接</span>
               <input name="url" type="url" required readOnly={state === "sending"} maxLength={2048} placeholder="https://" className={inputClass} />
             </label>
-            <p className="text-[13px] leading-snug text-ink-2">通知路飞 · 飞书卡片</p>
+            {recipient && (
+              <div className="flex items-center gap-2 text-[13px] text-ink-2">
+                <span className="shrink-0">通知</span>
+                <a
+                  href={recipient.chatUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`在飞书中与${recipient.name}聊天`}
+                  className="inline-flex min-h-11 min-w-0 items-center gap-2 rounded-control px-2 text-ink transition-colors hover:bg-bg-sunk hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  <img src={recipient.avatarUrl} alt="" width={28} height={28} referrerPolicy="no-referrer" className="size-7 shrink-0 rounded-full bg-bg-sunk object-cover" />
+                  <span className="truncate font-medium">{recipient.name}</span>
+                  <IconExternal size={13} className="shrink-0 text-ink-3" />
+                </a>
+              </div>
+            )}
             {error && <p role="alert" className="text-[13px] text-ink">{error}</p>}
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" className={buttonClass()} disabled={state === "sending"} onClick={close}>取消</button>
@@ -128,7 +143,7 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
       <PhoneBar title="信源" back={{ to: "/more", label: "我的" }} />
       <div className="flex items-center justify-between gap-3 pb-3 pt-0.5 lg:p-0">
         <h1 data-page-title="" className="shrink-0 text-[30px] font-bold leading-[1.25] tracking-[-0.01em] text-ink lg:text-[24px] lg:font-semibold lg:leading-[1.3]">信源</h1>
-        <SourceFeedback />
+        <SourceFeedback recipient={directory.feedbackRecipient} />
       </div>
       <Form key={JSON.stringify(filters)} method="get" action="/sources" role="search" aria-label="筛选信源" className="flex flex-wrap items-center gap-2 lg:mt-4">
         <label className="relative w-full sm:max-w-72">

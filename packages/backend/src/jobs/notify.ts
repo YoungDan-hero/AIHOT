@@ -3,11 +3,16 @@ import type { PgBoss } from "pg-boss";
 import { pushSelected } from "../notify/selected.ts";
 import { prepareArticleMedia, warmShareImage } from "../media/prepare.ts";
 import { convertAnimated, convertAvif } from "../media/images.ts";
+import { notifySourceSuggestion, sourceSuggestionNotificationsEnabled } from "../site/source-suggestions.ts";
 import { enqueue, QUEUES, work } from "./queue.ts";
 
 const MAX_RETRIES = 6;
 
 export async function registerNotifyJobs(boss: PgBoss) {
+  if (sourceSuggestionNotificationsEnabled()) {
+    await work(boss, QUEUES.notifySourceSuggestion, { localConcurrency: 1, pollingIntervalSeconds: 2 }, ({ suggestionId }) =>
+      notifySourceSuggestion(suggestionId));
+  }
   await work(boss, QUEUES.notifySelected, { localConcurrency: 1, pollingIntervalSeconds: 5 }, async ({ articleId, attempt = 0 }) => {
     // The push makes chat apps unfurl the link: have its share image ready (first attempt only).
     if (!attempt) await warmShareImage(articleId);

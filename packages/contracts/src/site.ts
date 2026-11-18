@@ -12,11 +12,18 @@ export interface SourceRef {
 export const SOURCE_HEALTH_LABELS = { ok: "正常", degraded: "不稳定", failing: "失败", paused: "已暂停", unknown: "未检查" } as const;
 export type SourceHealth = keyof typeof SOURCE_HEALTH_LABELS;
 
+export interface SourceFeedbackRecipient {
+  name: string;
+  avatarUrl: string;
+  chatUrl: string;
+}
+
 export interface SourceDirectoryResponse {
   items: Array<{ id: string; name: string; status: SourceHealth; lastFetchAt: string | null }>;
   total: number;
   page: number;
   pageCount: number;
+  feedbackRecipient?: SourceFeedbackRecipient;
 }
 
 export interface MediaView {

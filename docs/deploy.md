@@ -280,6 +280,10 @@ docker compose logs -f --tail 100 api worker web
 
 启用员工登录后，收藏保存在站点数据库里。同一飞书账号在手机和电脑上读取同一份收藏，账号收藏从空列表开始。更新部署时先执行数据库迁移，再启动 API 与网页进程。
 
+信源反馈可通过同一个飞书应用的机器人发单聊卡片。在飞书应用中开通并发布 `im:message:send_as_bot`，把路飞加入应用可用范围。在 `.env` 设置 `FEISHU_SOURCE_SUGGESTION_RECIPIENT_UNION_ID` 为路飞在同一企业开发者下的 Union ID，并将 `FEISHU_SOURCE_SUGGESTION_NOTIFY_ENABLED` 设为 `true` 后重启 API 和 worker。新反馈入库后由 worker 发送卡片，同名同链接的重复提交只保留一份。
+
+弹窗的聊天入口使用同一接收人的飞书花名、Open ID 和头像。将三项分别填入 `FEISHU_SOURCE_SUGGESTION_RECIPIENT_NAME`、`FEISHU_SOURCE_SUGGESTION_RECIPIENT_OPEN_ID` 和 `FEISHU_SOURCE_SUGGESTION_RECIPIENT_AVATAR_URL`，重启 API 后生效。
+
 ### 管理员会话与配置变更
 
 会话绑定登录方式、登录时的管理员凭据或飞书身份。修改管理员密码、飞书管理员名单或会话密钥后，应重启所有 API 进程，使它们加载相同的新配置；只编辑配置文件不代表正在运行的进程已生效，混用旧代码或旧配置的进程不能提供统一撤权。

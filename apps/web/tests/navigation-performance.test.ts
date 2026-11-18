@@ -18,6 +18,11 @@ import { FIXTURE_AT as at, fakeApi, feedItem, itemDetail, startWebServer, visit,
 
 const item = feedItem({id:'navigation-fixture',title:'性能检查文章'});
 const detail = itemDetail({id:item.id,title:item.title,originalTitle:'Fixture article'});
+const feedbackRecipient = {
+  name: "路飞",
+  avatarUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/n1cAAAAASUVORK5CYII=",
+  chatUrl: "https://applink.feishu.cn/client/chat/open?openId=ou_feedback_fixture",
+};
 const codeSource='import json\n\nwith open("data.json") as file:\n    data = json.load(file)\n\nfor record in data:\n    print(record["title"])\n';
 const readerBody=Array.from({length:30},(_,i)=>`<p>阅读段落 ${i}：先阅读文章，再查看后面的代码和图片。正文保持可读，图片和代码在需要时增强。</p>`).join('')
   +`<pre><code>${codeSource}</code></pre><pre><code>x = 1</code></pre>`
@@ -65,7 +70,7 @@ const api=fakeApi((url,res,req)=>{
     const filtered = items.filter((item) => item.name.includes(query) && (!status || item.status === status));
     const pageCount = Math.max(1, Math.ceil(filtered.length / 50));
     const page = Math.min(Number(url.searchParams.get("page") ?? 1), pageCount);
-    return { items: filtered.slice((page - 1) * 50, page * 50), total: filtered.length, page, pageCount };
+    return { items: filtered.slice((page - 1) * 50, page * 50), total: filtered.length, page, pageCount, feedbackRecipient };
   }
   if (p === "/api/site/source-suggestions" && req.method === "POST") return { ok: true };
   if(p==='/api/site/items/navigation-fixture')return detail;
@@ -173,6 +178,7 @@ test("readers can open the sources directory and keep its filters when paging", 
 
 test("source feedback keeps the current directory page and preserves fields after a failed submission", async () => {
   const context = await safari.newContext({ viewport: { width: 390, height: 844 } });
+  await context.route(feedbackRecipient.chatUrl, (route) => route.fulfill({ contentType: "text/plain", body: "mock Feishu chat" }));
   const page = await context.newPage();
   try {
     const url = origin + "/sources?q=测试信源&status=paused&page=2";
@@ -180,11 +186,22 @@ test("source feedback keeps the current directory page and preserves fields afte
     const opener = page.getByRole("button", { name: "信源反馈" });
     await opener.click();
     const dialog = page.getByRole("dialog", { name: "信源反馈" });
-    await expect(dialog.getByText("通知路飞 · 飞书卡片", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("通知", { exact: true })).toBeVisible();
+    const recipient = dialog.getByRole("link", { name: "在飞书中与路飞聊天" });
+    await expect(recipient).toHaveText("路飞");
+    await expect(recipient).toHaveAttribute("href", feedbackRecipient.chatUrl);
+    await expect(recipient.locator("img")).toHaveAttribute("src", feedbackRecipient.avatarUrl);
     const name = dialog.getByLabel("信源名称");
     const link = dialog.getByLabel("信源链接");
     await name.fill("新信源");
     await link.fill("https://example.org/news");
+    const openedChat = context.waitForEvent("page");
+    await recipient.click();
+    const chat = await openedChat;
+    await chat.waitForURL(feedbackRecipient.chatUrl);
+    await chat.close();
+    await expect(name).toHaveValue("新信源");
+    await expect(link).toHaveValue("https://example.org/news");
     await page.route("**/api/site/source-suggestions", (route) => route.fulfill({ status: 503 }), { times: 1 });
     await dialog.getByRole("button", { name: "提交反馈" }).click();
     await expect(dialog.getByRole("alert")).toHaveText("提交失败，请稍后再试。");
