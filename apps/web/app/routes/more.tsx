@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useRouteLoaderData } from "react-router";
 import { SITE } from "@aihot/site";
 import { PhoneBar } from "../components/shell/PhoneBar";
+import { OWNER_LINKS } from "../components/shell/nav";
 import type { Screen } from "../components/shell/screens";
 import { edgeTtl } from "../lib/api.server";
 import { webModules } from "../site-modules";
@@ -12,6 +13,7 @@ import { Select } from "../components/ui/Controls";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
 import { Filings } from "../components/shell/Filings";
 import { IconBookmark, IconChevronRight, IconHeart, IconMoon, IconPlug, IconRss } from "../components/icons";
+import type { loader as rootLoader } from "../root";
 
 export const handle: Screen = { tab: "me", name: "我的" };
 
@@ -62,6 +64,7 @@ function RowLink({ row }: { row: Row }) {
 }
 
 export default function MorePage() {
+  const owner = useRouteLoaderData<typeof rootLoader>("root")?.owner === true;
   const account = useAccountStarred();
   const localStarred = useStarred(!account);
   const starredCount = account ? account.items?.length ?? 0 : localStarred.length;
@@ -98,6 +101,13 @@ export default function MorePage() {
             <RowLink key={r.to} row={r} />
           ))}
         </Group>
+        {owner && (
+          <Group title="管理">
+            {OWNER_LINKS.map(({ to, label, icon: Icon }) => (
+              <RowLink key={to} row={{ to, label, icon: <Icon size={20} /> }} />
+            ))}
+          </Group>
+        )}
         <Group title="关于">
           <RowLink row={{ to: "/about", label: `关于 ${SITE.name}`, icon: <IconHeart size={20} /> }} />
         </Group>

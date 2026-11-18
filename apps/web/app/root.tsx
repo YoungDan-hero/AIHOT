@@ -4,7 +4,7 @@ import {
 } from "react-router";
 import { SITE } from "@aihot/site";
 import { RingMark } from "@aihot/site/brand/Logo.tsx";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Route } from "./+types/root";
 import "./app.css";
 import { Sidebar } from "./components/shell/Sidebar";
@@ -16,6 +16,7 @@ import { BackToTop, NavigationProgress } from "./components/shell/Chrome";
 import { buttonClass } from "./components/ui/Controls";
 import { APPEARANCE_BOOT_SCRIPT, DEFAULT_THEME, THEME_COLOR, useAppearanceSync } from "./lib/local-state";
 import { AccountStarredProvider } from "./lib/account-starred";
+import { apiGet } from "./lib/api.server";
 import { employeeLoginEnabled } from "./lib/employee.server";
 import { useHydratedFlag } from "./lib/hydration";
 import { titled } from "./lib/seo";
@@ -30,8 +31,12 @@ export const links: Route.LinksFunction = () => [
 ];
 
 /** The release rendering this document: once a newer one is deployed, a render error reloads the page (entry.client). */
-export function loader() {
-  return { release: process.env.AIHOT_RELEASE ?? null, employeeLogin: employeeLoginEnabled() };
+export async function loader({ request }: Route.LoaderArgs) {
+  const employeeLogin = employeeLoginEnabled();
+  const profile = employeeLogin
+    ? await apiGet<{ owner: boolean }>("/api/employee/profile", { signal: request.signal }).catch(() => null)
+    : null;
+  return { release: process.env.AIHOT_RELEASE ?? null, employeeLogin, owner: profile?.owner === true };
 }
 
 export const shouldRevalidate: ShouldRevalidateFunction = () => false;
@@ -72,7 +77,7 @@ export function meta({ error }: Route.MetaArgs) {
 }
 
 /** Sidebar, main column and phone tab bar around a page (or an error). */
-function SiteShell({ children }: { children: ReactNode }) {
+function SiteShell({ children, owner }: { children: ReactNode; owner: boolean }) {
   const navigation = useNavigation();
   // The phone search and pull-to-refresh are client-side, mounted once the page is interactive.
   const [interactive, setInteractive] = useState(false);
@@ -85,7 +90,7 @@ function SiteShell({ children }: { children: ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-control focus:bg-surface focus:px-3 focus:py-2">
         跳到正文
       </a>
-      <Sidebar />
+      <Sidebar owner={owner} />
       {/* Phone shell (≤ 699px): each page's top bar (PhoneBar), one centred column, the tab bar below.
           Desktop: the page fills the main area up to the list width (--page-max-wide), centred beyond it. */}
       <main id="main" className="min-w-0 flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] lg:px-5 lg:pb-[72px] lg:pt-6 wide:px-7">
@@ -100,6 +105,23 @@ function SiteShell({ children }: { children: ReactNode }) {
       <BackToTop />
     </div>
   );
+}
+
+function EmployeeVisit({ pathname }: { pathname: string }) {
+  const previous = useRef<string | null>(null);
+  useEffect(() => {
+    if (previous.current === pathname) return;
+    previous.current = pathname;
+    if (pathname.startsWith("/owner/")) return;
+    void fetch("/api/employee/visits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      referrerPolicy: "no-referrer",
+      keepalive: true,
+      body: JSON.stringify({ path: pathname }),
+    }).catch(() => {});
+  }, [pathname]);
+  return null;
 }
 
 export default function App() {
@@ -118,7 +140,8 @@ export default function App() {
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return <Outlet />;
   const content = (
     <>
-      <SiteShell>
+      {site?.employeeLogin && <EmployeeVisit pathname={pathname} />}
+      <SiteShell owner={site?.owner === true}>
         <Outlet />
       </SiteShell>
       {webModules().map((m) => m.root?.Bottom && <m.root.Bottom key={m.name} />)}
@@ -130,6 +153,7 @@ export default function App() {
 export function ErrorBoundary() {
   useAppearanceSync();
   const error = useRouteError();
+  const site = useRouteLoaderData<typeof loader>("root");
   const { pathname, search, hash } = useLocation();
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const notFound = status === 404;
@@ -158,5 +182,5 @@ export function ErrorBoundary() {
   );
   // Admin errors stay inside the admin's own chrome.
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return body;
-  return <SiteShell>{body}</SiteShell>;
+  return <SiteShell owner={site?.owner === true}>{body}</SiteShell>;
 }

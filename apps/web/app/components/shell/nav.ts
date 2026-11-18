@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { NAV, subjectAfter, withSubject } from "@aihot/site";
 import { webModules } from "../../site-modules";
 import {
-  IconBolt, IconBookmark, IconDoc, IconFlame, IconHeart, IconList, IconPlug, IconRss, IconUser,
+  IconBolt, IconBookmark, IconChart, IconDoc, IconFlame, IconHeart, IconList, IconPlug, IconRss, IconUser, IconUsers,
 } from "../icons";
 
 export interface NavItem {
@@ -16,6 +16,11 @@ export interface NavItem {
   /** Other pages the entry stands for: they and the pages under them light it too. */
   covers?: string[];
 }
+
+export const OWNER_LINKS: NavItem[] = [
+  { to: "/owner/visits", label: "访客记录", icon: IconUsers },
+  { to: "/owner/model-rankings", label: "模型能力榜", icon: IconChart },
+];
 
 const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
   {
@@ -59,7 +64,7 @@ export function navUp(entry: keyof typeof UP): { to: string; name: string; back:
  * The sidebar: the engine's sections with the modules' between 内容 and 更多; a module naming a section
  * that is already there adds to it.
  */
-export function sidebar(): Array<{ title: string; items: NavItem[] }> {
+export function sidebar(owner = false): Array<{ title: string; items: NavItem[] }> {
   const [content, ...rest] = SECTIONS;
   const more = rest.pop()!;
   const sections = [content!, ...rest].map((s) => ({ ...s, items: s.items.filter((i) => inNav(i.to)) }));
@@ -69,6 +74,7 @@ export function sidebar(): Array<{ title: string; items: NavItem[] }> {
     if (section) section.items.push(...m.sidebar.items);
     else sections.push({ title: m.sidebar.section, items: [...m.sidebar.items] });
   }
+  if (owner) sections.push({ title: "管理", items: OWNER_LINKS });
   return [...sections, more];
 }
 

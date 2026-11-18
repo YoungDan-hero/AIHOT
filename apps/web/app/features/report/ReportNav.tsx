@@ -16,6 +16,7 @@ export function KindSwitch({ kind, phone = false, layoutId = phone ? "report-kin
     <PillTabs
       fill={!phone}
       size={phone ? "sm" : "md"}
+      compactOnPhone={phone}
       layoutId={layoutId}
       label="切换日报、周报、月报"
       active={kind}

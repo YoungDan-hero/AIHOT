@@ -49,13 +49,16 @@ export async function apiGet<T>(path: string, init?: { signal?: AbortSignal; hea
  * Maps API failures to route responses: real 404s, the permanent redirect of a merged page (`merged`
  * gives the page of the id it was merged into), the search-busy page, otherwise 503.
  */
-export async function loadOr404<T>(path: string, opts: { busyRedirect?: string; merged?: (id: string) => string; responseHeaders?: Headers; signal?: AbortSignal } = {}): Promise<T> {
+export async function loadOr404<T>(path: string, opts: { busyRedirect?: string; merged?: (id: string) => string; responseHeaders?: Headers; signal?: AbortSignal; ownerOnly?: boolean } = {}): Promise<T> {
+  if (opts.ownerOnly && !employeeLoginEnabled()) throw data({ message: "not_found" }, { status: 404 });
   try {
     return await apiGet<T>(path, { responseHeaders: opts.responseHeaders, signal: opts.signal });
   } catch (error) {
     if (opts.signal?.aborted) throw error;
     if (error instanceof ApiError) {
-      if (error.status === 404) throw data({ message: "not_found" }, { status: 404 });
+      if (error.status === 404 || (opts.ownerOnly && (error.status === 401 || error.status === 403))) {
+        throw data({ message: "not_found" }, { status: 404 });
+      }
       if (error.mergedInto && opts.merged) throw redirect(opts.merged(error.mergedInto), 308);
       if (error.status === 503 && opts.busyRedirect) throw redirect(opts.busyRedirect);
       if (error.status === 400) throw data({ message: "bad_request" }, { status: 400 });

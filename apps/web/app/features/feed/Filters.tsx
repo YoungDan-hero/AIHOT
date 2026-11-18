@@ -67,6 +67,7 @@ export function FeedBar({ base, category, channel }: { base: "/" | "/all"; categ
         center={
           <PillTabs
             size="sm"
+            compactOnPhone
             layoutId="feed-scope"
             label="看精选或全部"
             active={base === "/" ? "featured" : "all"}

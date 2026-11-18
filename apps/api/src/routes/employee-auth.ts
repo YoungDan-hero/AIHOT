@@ -1,22 +1,37 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { safeReturn } from "@aihot/contracts/admin";
 import type { EmployeeStarredResponse } from "@aihot/contracts/site";
 import { ARTICLE_ID_PATTERN } from "@aihot/contracts/taxonomy";
 import { config, credential } from "@aihot/backend/config";
 import { cookie, parseCookies } from "@aihot/backend/lib/http-cookies";
 import { loadEmployeeStars, removeEmployeeStar, saveEmployeeStar } from "@aihot/backend/publication/employee-starred";
+import { loadEmployeeVisits, parseVisitPath, recordEmployeeVisit } from "@aihot/backend/publication/employee-visits";
 
 const LOGIN = "/api/employee/login";
 const CALLBACK = "/api/employee/callback";
 const SESSION = "/api/employee/session";
+const PROFILE = "/api/employee/profile";
 const LOGOUT = "/api/employee/logout";
 const STARRED = "/api/employee/starred";
+const VISITS = "/api/employee/visits";
+const OWNER_PREFIX = "/api/owner/";
 const STATE_AGE = 300;
 const SESSION_AGE = 2 * 60 * 60;
+const OPEN_ID_PATTERN = /^ou_[\w-]{1,253}$/;
 
 type Flow = { expires: number; state: string; verifier: string; target: string };
-type Session = { expires: number; user: string };
+type Session = { expires: number; user: string; name?: string | null };
+
+function ownerRequest(req: FastifyRequest): boolean {
+  return !!req.routeOptions.url?.startsWith(OWNER_PREFIX) || !!req.raw.url?.startsWith(OWNER_PREFIX);
+}
+
+function employeeName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(/[\p{Cc}\u202A-\u202E\u2066-\u2069]/gu, " ").replace(/\s+/gu, " ").trim();
+  return Array.from(cleaned).slice(0, 80).join("") || null;
+}
 
 function signinPage(message: string, target = "/"): string {
   const next = LOGIN + "?" + new URLSearchParams({ return: target });
@@ -36,10 +51,20 @@ a:focus-visible{outline:2px solid #08646b;outline-offset:3px}
 }
 
 export function registerEmployeeAuth(app: FastifyInstance): void {
-  if (process.env.FEISHU_EMPLOYEE_LOGIN_ENABLED !== "true") return;
+  if (process.env.FEISHU_EMPLOYEE_LOGIN_ENABLED !== "true") {
+    const requireOwner = async (_req: FastifyRequest, reply: FastifyReply) =>
+      reply.header("Cache-Control", "private, no-store").code(401).send({ error: "employee_login_required" });
+    app.decorate("requireEmployeeOwner", requireOwner);
+    app.addHook("onRequest", async (req, reply) => {
+      if (ownerRequest(req)) return requireOwner(req, reply);
+    });
+    return;
+  }
 
   const appId = credential("integrations", "FEISHU_EMPLOYEE_APP_ID");
   const appSecret = credential("integrations", "FEISHU_EMPLOYEE_APP_SECRET");
+  const configuredOwner = credential("integrations", "FEISHU_OWNER_OPEN_ID");
+  const ownerOpenId = configuredOwner && OPEN_ID_PATTERN.test(configuredOwner) ? configuredOwner : null;
   const tenant = process.env.FEISHU_EMPLOYEE_TENANT_KEY;
   const secret = credential("auth", "SESSION_SECRET");
   const origin = new URL(config.siteUrl);
@@ -66,14 +91,23 @@ export function registerEmployeeAuth(app: FastifyInstance): void {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString()) as T;
     return data.expires > Date.now() ? data : null;
   };
-  const employeeSession = (header: string | undefined) => read<Session>("session", parseCookies(header)[sessionCookie]);
-  const accountKey = (header: string | undefined) => {
-    const session = employeeSession(header);
-    return session ? createHash("sha256").update(JSON.stringify([appId, tenant, session.user])).digest("hex") : null;
+  const employeeSession = (header: string | undefined) => {
+    const session = read<Session>("session", parseCookies(header)[sessionCookie]);
+    // Refresh existing sessions once so visit records can include the Feishu profile name.
+    return session && (!ownerOpenId || session.name !== undefined) ? session : null;
   };
+  const isOwner = (session: Session) => ownerOpenId !== null && session.user === ownerOpenId;
+  const requireOwner = async (req: FastifyRequest, reply: FastifyReply) => {
+    const session = employeeSession(req.headers.cookie);
+    if (!session) return reply.code(401).send({ error: "employee_login_required" });
+    if (!isOwner(session)) return reply.code(403).send({ error: "forbidden" });
+  };
+  app.decorate("requireEmployeeOwner", requireOwner);
+  const accountKey = (session: Session) => createHash("sha256").update(JSON.stringify([appId, tenant, session.user])).digest("hex");
 
   // Every data route, including direct API requests, shares this gate. Ingest keeps its own token check.
   app.addHook("onRequest", async (req, reply) => {
+    if (ownerRequest(req)) return requireOwner(req, reply);
     const pathname = (req.raw.url ?? "").split("?")[0];
     if ((req.method === "GET" || req.method === "HEAD")
         && (pathname === LOGIN || pathname === CALLBACK || pathname === "/api/health")) return;
@@ -132,12 +166,12 @@ export function registerEmployeeAuth(app: FastifyInstance): void {
         headers: { Authorization: "Bearer " + token.access_token },
         redirect: "error", signal: AbortSignal.timeout(10_000),
       });
-      const profile = await profileResponse.json() as { code?: number; data?: { tenant_key?: string; open_id?: string } };
+      const profile = await profileResponse.json() as { code?: number; data?: { tenant_key?: string; open_id?: string; name?: unknown } };
       const user = profile.data?.open_id;
-      if (!profileResponse.ok || profile.code !== 0 || profile.data?.tenant_key !== tenant || typeof user !== "string" || !/^ou_[\w-]{1,253}$/.test(user)) {
+      if (!profileResponse.ok || profile.code !== 0 || profile.data?.tenant_key !== tenant || typeof user !== "string" || !OPEN_ID_PATTERN.test(user)) {
         return reply.code(403).type("text/html; charset=utf-8").send(signinPage("请切换到重庆麦芽传媒有限公司的飞书账号后重试。", flow.target));
       }
-      const session = sign("session", { user, expires: Date.now() + SESSION_AGE * 1000 });
+      const session = sign("session", { user, name: employeeName(profile.data?.name), expires: Date.now() + SESSION_AGE * 1000 });
       return reply.header("Set-Cookie", cookie(sessionCookie, session, SESSION_AGE, secure)).redirect(flow.target, 303);
     } catch {
       // Provider errors can include response bytes or authorization parameters.
@@ -145,17 +179,36 @@ export function registerEmployeeAuth(app: FastifyInstance): void {
     }
   });
   app.get(SESSION, async (_req, reply) => reply.code(204).send());
+  app.get(PROFILE, async (req, reply) => {
+    const session = employeeSession(req.headers.cookie);
+    if (!session) return reply.code(401).send({ error: "employee_login_required" });
+    return { owner: isOwner(session) };
+  });
+  app.post<{ Body: { path?: unknown } }>(VISITS, { bodyLimit: 1024 }, async (req, reply) => {
+    const session = employeeSession(req.headers.cookie);
+    if (!session) return reply.code(401).send({ error: "employee_login_required" });
+    if (req.headers.origin !== origin.origin) return reply.code(403).send({ error: "forbidden" });
+    const visit = parseVisitPath(req.body?.path);
+    if (!visit) return reply.code(400).send({ error: "invalid_visit_path" });
+    if (ownerOpenId) await recordEmployeeVisit(accountKey(session), session.name, visit);
+    return reply.code(204).send();
+  });
+  app.get<{ Querystring: { page?: string } }>(`${OWNER_PREFIX}visits`, { preHandler: requireOwner }, async (req) => {
+    const page = /^[1-9]\d{0,8}$/.test(req.query.page ?? "") ? Number(req.query.page) : 1;
+    return loadEmployeeVisits(page);
+  });
   app.get(STARRED, async (req, reply) => {
-    const account = accountKey(req.headers.cookie);
-    if (!account) return reply.code(401).send({ error: "employee_login_required" });
-    return { items: await loadEmployeeStars(account) } satisfies EmployeeStarredResponse;
+    const session = employeeSession(req.headers.cookie);
+    if (!session) return reply.code(401).send({ error: "employee_login_required" });
+    return { items: await loadEmployeeStars(accountKey(session)) } satisfies EmployeeStarredResponse;
   });
   app.route<{ Params: { id: string } }>({
     method: ["PUT", "DELETE"],
     url: `${STARRED}/:id`,
     async handler(req, reply) {
-      const account = accountKey(req.headers.cookie);
-      if (!account) return reply.code(401).send({ error: "employee_login_required" });
+      const session = employeeSession(req.headers.cookie);
+      if (!session) return reply.code(401).send({ error: "employee_login_required" });
+      const account = accountKey(session);
       if (req.headers.origin !== origin.origin) return reply.code(403).send({ error: "forbidden" });
       const { id } = req.params;
       if (!ARTICLE_ID_PATTERN.test(id)) return reply.code(400).send({ error: "invalid_article_id" });

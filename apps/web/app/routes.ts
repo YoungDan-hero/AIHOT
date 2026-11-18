@@ -32,6 +32,8 @@ export default [
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
+  route("owner/visits", "routes/owner-visits.tsx"),
+  route("owner/model-rankings", "routes/owner-model-rankings.tsx"),
   ...modulePages,
   route("admin/login", "routes/admin-login.tsx"),
   // A site without admin pages (null ADMIN settings) answers 404 here (the layout); signing in serves every site.

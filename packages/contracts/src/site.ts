@@ -459,6 +459,23 @@ export interface EmployeeStarredResponse {
   items: EmployeeStarredItem[];
 }
 
+export interface EmployeeVisitSession {
+  id: string;
+  name: string;
+  startedAt: string;
+  lastVisitedAt: string;
+  historical: boolean;
+  pages: { path: string; count: number }[];
+  articles: { path: string; title: string | null; count: number }[];
+}
+
+export interface EmployeeVisitsResponse {
+  items: EmployeeVisitSession[];
+  page: number;
+  pageCount: number;
+  total: number;
+}
+
 /** An issue in the archive and the calendar, numbered in its whole series; closed daily months omit their titles. */
 export interface ReportNavigationEntry { key: string; issueNumber: number; title?: string | null; count?: number }
 

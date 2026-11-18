@@ -66,7 +66,7 @@ function Rail() {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ owner }: { owner: boolean }) {
   const { pathname } = useLocation();
   const [columnRef, columnOverscroll] = useContainedScroll<HTMLElement>();
   const [navRef, navOverscroll] = useContainedScroll<HTMLElement>();
@@ -80,7 +80,7 @@ export function Sidebar() {
           <Wordmark size={26} />
         </Link>
         <nav ref={navRef} className={`scrollbar-thin -mx-1 flex-1 overflow-y-auto px-1 short:flex-none short:overflow-visible ${navOverscroll}`} aria-label="主导航">
-          {sidebar().map((section) => {
+          {sidebar(owner).map((section) => {
             // Only the most specific entry of a section is lit, so a detail page does not light the list above it too.
             const lit = activeSidebarItem(section.items, pathname);
             return (

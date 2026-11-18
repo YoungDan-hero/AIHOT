@@ -17,7 +17,7 @@ function placeOf(el: HTMLElement) {
  * The white thumb inside the chosen option. It is rendered in place (so it is right without
  * JavaScript) and, when the choice moves, glides over from where the previous thumb was.
  */
-function Thumb({ id }: { id: string }) {
+function Thumb({ id, compactOnPhone }: { id: string; compactOnPhone: boolean }) {
   const ref = useRef<HTMLSpanElement>(null);
   const entrance = useEntrance();
   useLayoutEffect(() => {
@@ -35,7 +35,7 @@ function Thumb({ id }: { id: string }) {
       thumbs.set(id, placeOf(el));
     };
   }, [id, entrance]);
-  return <span ref={ref} className="absolute inset-0 rounded-full bg-surface shadow-[var(--shadow-thumb)] ring-1 ring-line dark:bg-raised" />;
+  return <span ref={ref} className={`pointer-events-none absolute inset-0 rounded-full bg-surface shadow-[var(--shadow-thumb)] ring-1 ring-line dark:bg-raised ${compactOnPhone ? "max-lg:inset-y-1.5" : ""}`} />;
 }
 
 export interface TabItem {
@@ -64,7 +64,7 @@ const SIZES = {
  * options evenly across the available width.
  */
 export function PillTabs({
-  items, active, onSelect, layoutId, size = "md", label, fill = false, className = "",
+  items, active, onSelect, layoutId, size = "md", label, fill = false, compactOnPhone = false, className = "",
 }: {
   items: TabItem[];
   active: string;
@@ -74,24 +74,29 @@ export function PillTabs({
   size?: keyof typeof SIZES;
   label?: string;
   fill?: boolean;
+  /** Inset the pill styling inside a phone header while keeping the 44px hit targets. */
+  compactOnPhone?: boolean;
   className?: string;
 }) {
   const links = items.some((t) => t.to);
   const Track = links ? "nav" : "div";
+  const well = compactOnPhone
+    ? "relative before:pointer-events-none before:absolute before:inset-0 before:rounded-full before:bg-well before:ring-1 before:ring-inset before:ring-line-soft max-lg:before:inset-y-1.5"
+    : "rounded-full bg-well ring-1 ring-inset ring-line-soft";
   return (
     <div className={`scrollbar-none max-w-full overflow-x-auto ${fill ? "w-full" : ""} ${className}`}>
       <Track
         data-pill-track=""
         aria-label={label}
         role={links ? undefined : "tablist"}
-        className={`${fill ? "grid w-full" : "inline-flex w-max"} gap-0.5 rounded-full bg-well p-0.5 lg:p-[3px] ring-1 ring-inset ring-line-soft`}
+        className={`${fill ? "grid w-full" : "inline-flex w-max"} gap-0.5 p-0.5 lg:p-[3px] ${well}`}
         style={fill ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined}
       >
         {items.map((t) => {
           const on = t.key === active;
           const inner = (
             <>
-              {on && <Thumb id={layoutId} />}
+              {on && <Thumb id={layoutId} compactOnPhone={compactOnPhone} />}
               <span className="relative inline-flex items-center gap-1">
                 {t.label}
                 {t.count !== undefined && t.count !== null && <span className={`num text-[0.86em] font-normal ${on ? "text-ink-3" : "text-ink-4"}`}>{t.count}</span>}

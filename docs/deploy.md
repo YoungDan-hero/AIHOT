@@ -284,6 +284,10 @@ docker compose logs -f --tail 100 api worker web
 
 弹窗的聊天入口使用同一接收人的飞书花名、Open ID 和头像。将三项分别填入 `FEISHU_SOURCE_SUGGESTION_RECIPIENT_NAME`、`FEISHU_SOURCE_SUGGESTION_RECIPIENT_OPEN_ID` 和 `FEISHU_SOURCE_SUGGESTION_RECIPIENT_AVATAR_URL`，重启 API 后生效。
 
+访客记录和模型能力榜只对 `FEISHU_OWNER_OPEN_ID` 对应的员工开放。使用当前登录应用下的 Open ID。访客记录按飞书账号汇总，连续 30 分钟没有新的访问后再打开页面会另起一条。展开可看去重后的页面、资讯和打开次数。早期记录按当时保存的花名归并。记录不收集搜索词或 URL 查询参数。
+
+模型能力榜使用服务端 `AA_API_KEY`，worker 每两小时同步 Artificial Analysis。所有页拉取成功后才更新榜单及更新时间。每次发布先应用新数据库迁移，然后重启 API、网页和 worker。
+
 ### 管理员会话与配置变更
 
 会话绑定登录方式、登录时的管理员凭据或飞书身份。修改管理员密码、飞书管理员名单或会话密钥后，应重启所有 API 进程，使它们加载相同的新配置；只编辑配置文件不代表正在运行的进程已生效，混用旧代码或旧配置的进程不能提供统一撤权。
