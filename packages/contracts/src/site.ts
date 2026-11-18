@@ -157,6 +157,8 @@ export interface TimelineResponse {
 export interface PoolResponse {
   filters: TimelineFilters & { q: string | null; tab: "time" | "relevance" };
   items: FeedItemSummary[];
+  /** Default browsing groups, indexed by representative article ID. */
+  groups?: Record<string, GroupInfo & { anchorAt: string }>;
   page: number;
   pageCount: number;
   total: number;

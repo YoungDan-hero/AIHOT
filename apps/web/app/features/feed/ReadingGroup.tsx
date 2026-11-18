@@ -12,10 +12,20 @@ import { isReload } from "../../lib/restore";
 import { listPath, filterParams } from "../../lib/seo";
 import { sessionCache } from "../../lib/session-cache";
 
-const reportsUrl = (factId: string, filters: TimelineFilters | undefined) =>
-  listPath(`/api/site/groups/${encodeURIComponent(factId)}/reports`, filters ? filterParams(filters) : {});
+interface GroupProps {
+  group: GroupInfo;
+  filters?: TimelineFilters;
+  parentId: string;
+  scope?: "browse";
+}
 
-const labelOf = (group: GroupInfo) => (group.additionalSourceCount > 0 ? `另外 ${group.additionalSourceCount} 家也报道了` : `${group.reportCount} 篇报道`);
+const reportsUrl = (factId: string, filters: TimelineFilters | undefined, scope?: GroupProps["scope"]) =>
+  listPath(`/api/site/groups/${encodeURIComponent(factId)}/reports`, { ...(filters && filterParams(filters)), scope });
+
+function labelOf(group: GroupInfo, scope: GroupProps["scope"], open = false) {
+  if (scope === "browse") return `${open ? "收起" : "展开"}其他报道（${group.reportCount - 1} 篇）`;
+  return group.additionalSourceCount > 0 ? `另外 ${group.additionalSourceCount} 家也报道了` : `${group.reportCount} 篇报道`;
+}
 
 // The groups left open in each history entry, with what they showed (null: still loading): back from an
 // item finds them open again. In memory for back within the app; in session storage for a page the
@@ -92,12 +102,12 @@ function LoadState({ loading, error, onRetry, empty }: { loading: boolean; error
 }
 
 /** "另外 N 家也报道了": the other reports of the fact the card stands for, behind a toggle. */
-export function GroupSources({ group, filters, parentId }: { group: GroupInfo; filters?: TimelineFilters; parentId: string }) {
+export function GroupSources({ group, filters, parentId, scope }: GroupProps) {
   const entry = useLocation().key;
   const key = `${group.factId}|${parentId}`;
   const saved = openGroups.peek(entry)?.groups[key];
   const [open, setOpen] = useState(saved !== undefined);
-  const reports = useReports(reportsUrl(group.factId, filters), saved);
+  const reports = useReports(reportsUrl(group.factId, filters, scope), saved);
   // Back in this history entry, an open group comes back open and is read once more; so after the browser
   // reloaded the page on back/forward (never on a reader's reload, which asks for a fresh list).
   useEffect(() => {
@@ -124,7 +134,7 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
           if (!open && !reports.reports && !reports.loading) void reports.load();
         }}
       >
-        {labelOf(group)}
+        {labelOf(group, scope, open)}
       </Toggle>
       <Panel open={open}>
         <ul className="divide-y divide-line-soft">
@@ -147,7 +157,7 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
 }
 
 /** Phones: the same duplicate reports as the desktop expansion. */
-export function GroupButton({ group, filters, parentId }: { group: GroupInfo; filters?: TimelineFilters; parentId: string }) {
+export function GroupButton({ group, filters, parentId, scope }: GroupProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   return (
@@ -164,22 +174,19 @@ export function GroupButton({ group, filters, parentId }: { group: GroupInfo; fi
         aria-haspopup="dialog"
         className="relative z-10 mt-2 flex min-h-11 w-full items-center justify-between rounded-tile bg-well px-3 py-2 text-left text-[12.5px] text-ink-4 transition-colors active:bg-bg-muted lg:hidden"
       >
-        {labelOf(group)}
+        {labelOf(group, scope)}
         <IconChevronRight size={14} />
       </button>
-      {mounted && <GroupSheet open={open} onClose={() => setOpen(false)} group={group} filters={filters} parentId={parentId} />}
+      {mounted && <GroupSheet open={open} onClose={() => setOpen(false)} group={group} filters={filters} parentId={parentId} scope={scope} />}
     </>
   );
 }
 
-function GroupSheet({ open, onClose, group, filters, parentId }: {
+function GroupSheet({ open, onClose, group, filters, parentId, scope }: GroupProps & {
   open: boolean;
   onClose: () => void;
-  group: GroupInfo;
-  filters?: TimelineFilters;
-  parentId: string;
 }) {
-  const reports = useReports(reportsUrl(group.factId, filters));
+  const reports = useReports(reportsUrl(group.factId, filters, scope));
   useEffect(() => {
     if (open && !reports.reports && !reports.loading && !reports.error) void reports.load();
   }, [open]);

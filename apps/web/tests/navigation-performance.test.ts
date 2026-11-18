@@ -18,6 +18,9 @@ import { FIXTURE_AT as at, fakeApi, feedItem, itemDetail, startWebServer, visit,
 
 const item = feedItem({id:'navigation-fixture',title:'性能检查文章'});
 const detail = itemDetail({id:item.id,title:item.title,originalTitle:'Fixture article'});
+const firstReport = feedItem({ id: "pool-first-report", title: "最早收录的报道" });
+const laterCopy = feedItem({ id: "pool-later-copy", title: "晚到的转载", timelineAt: "2026-10-05T08:00:00.000Z" });
+const laterProgress = feedItem({ id: "pool-new-progress", title: "独立的新进展" });
 const feedbackRecipient = {
   name: "路飞",
   avatarUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/n1cAAAAASUVORK5CYII=",
@@ -56,7 +59,21 @@ const api=fakeApi((url,res,req)=>{
   }
   if(p==='/api/site/pool'){
     const page=Number(url.searchParams.get('page')||1);
+    if (url.searchParams.get("tag") === "duplicate-fixture") {
+      const q = url.searchParams.get("q");
+      return {
+        filters: { channel: "all", category: "domestic", tag: "duplicate-fixture", q, tab: "time" },
+        items: q ? [laterCopy, firstReport] : [laterProgress, firstReport],
+        groups: q ? undefined : {
+          [firstReport.id]: { factId: "pool-fact", anchorAt: "2026-10-03T08:00:00.000Z", additionalSourceCount: 1, reportCount: 2 },
+        },
+        page: 1, pageCount: 1, total: 2, todayCount: 0, freshness: at,
+      };
+    }
     return {filters:{channel:'all',category:null,tag:null,q:null,tab:'time'},items:[{...item,title:'全部第 '+page+' 页'}],page,pageCount:3,total:3,todayCount:1,freshness:at};
+  }
+  if (p === "/api/site/groups/pool-fact/reports") {
+    return { factId: "pool-fact", reports: [firstReport, laterCopy].map((report) => ({ ...report, originalUrl: `https://example.org/${report.id}` })) };
   }
   if (p === "/api/site/sources") {
     const items: SourceDirectoryResponse["items"] = [
@@ -74,6 +91,7 @@ const api=fakeApi((url,res,req)=>{
   }
   if (p === "/api/site/source-suggestions" && req.method === "POST") return { ok: true };
   if(p==='/api/site/items/navigation-fixture')return detail;
+  if (p === `/api/site/items/${laterCopy.id}`) return itemDetail({ id: laterCopy.id, title: laterCopy.title });
   if(p==='/api/site/items/navigation-fixture/original')return {...detail,body:{zh:null,original:'<p>Original fixture</p>',zhKind:null,complete:true},bodyLanguage:'original'};
   if(p==='/api/site/items/reader-fixture')return {...detail,id:'reader-fixture',title:'阅读增强检查',body:{...detail.body,zh:readerBody}};
   if(p==='/api/site/items/reader-fixture/original')return {...detail,id:'reader-fixture',title:'阅读增强检查',body:{...detail.body,zh:null,original:'<p>Original reader text</p>'},bodyLanguage:'original'};
@@ -111,6 +129,34 @@ test('domestic and overseas feeds are equally reachable on phones and desktop',a
       await domestic.click();
       await expect(page.getByRole('link',{name:'分类 domestic',exact:true})).toBeVisible();
     }finally{await context.close();}
+  }
+});
+
+test("all updates fold late copies at the original anchor while keeping them readable", async () => {
+  const listUrl = origin + "/all?category=domestic&tag=duplicate-fixture";
+  for (const [browser, width] of [[safari, 390], [chrome, 1280]] as const) {
+    const context = await browser.newContext({ viewport: { width, height: 844 }, reducedMotion: "reduce" });
+    try {
+      const page = await context.newPage();
+      const reportsOffset = hits.length;
+      await visit(page, listUrl);
+      await expect(page.getByRole("region", { name: "2026-10-03" }).getByRole("link", { name: firstReport.title })).toHaveCount(1);
+      await expect(page.getByRole("link", { name: laterProgress.title, exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: new RegExp(laterCopy.title) })).toHaveCount(0);
+      assert.ok(!hits.slice(reportsOffset).some((hit) => hit.startsWith("/api/site/groups/pool-fact/reports")));
+
+      await page.getByRole("button", { name: "展开其他报道（1 篇）" }).click();
+      const reports = width < 700 ? page.getByRole("dialog", { name: "这件事的其他报道" }) : page;
+      const copy = reports.getByRole("link", { name: new RegExp(laterCopy.title) });
+      await expect(copy).toHaveAttribute("href", `/items/${laterCopy.id}`);
+      assert.ok(hits.slice(reportsOffset).includes("/api/site/groups/pool-fact/reports?category=domestic&tag=duplicate-fixture&scope=browse"));
+      await copy.click();
+      await expect(page).toHaveURL(`${origin}/items/${laterCopy.id}`);
+
+      await visit(page, listUrl + "&q=转载");
+      await expect(page.getByRole("link", { name: laterCopy.title, exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: /展开其他报道/ })).toHaveCount(0);
+    } finally { await context.close(); }
   }
 });
 

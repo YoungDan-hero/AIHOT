@@ -2,7 +2,7 @@
 // (全部动态, search results).
 import { IntentLink } from "../../components/ui/IntentLink";
 import { useMemo } from "react";
-import type { FeedItemSummary } from "@aihot/contracts/site";
+import type { FeedItemSummary, PoolResponse, TimelineFilters } from "@aihot/contracts/site";
 import { IconChevronRight } from "../../components/icons";
 import { beijingDate } from "@aihot/contracts/time";
 import { byBeijingDay } from "../../lib/format";
@@ -10,19 +10,29 @@ import { markRead, useReadSet } from "../../lib/local-state";
 import { DayHeader, TimelineSlot } from "./Timeline";
 import { FeedItem } from "./FeedItem";
 
-export function DayList({ items, todayCount = null, headerAside }: { items: FeedItemSummary[]; todayCount?: number | null; headerAside?: React.ReactNode }) {
+export function DayList({ items, groups, filters, todayCount = null, headerAside }: {
+  items: FeedItemSummary[];
+  groups?: PoolResponse["groups"];
+  filters?: TimelineFilters;
+  todayCount?: number | null;
+  headerAside?: React.ReactNode;
+}) {
   const readSet = useReadSet();
   const today = beijingDate(Date.now());
-  const days = useMemo(() => byBeijingDay(items, (it) => it.timelineAt), [items]);
+  const days = useMemo(() => byBeijingDay(items.map((item) => {
+    const group = groups?.[item.id];
+    return { item, group, at: group?.anchorAt ?? item.timelineAt };
+  }), (row) => row.at), [items, groups]);
   return (
     <div>
       {days.map(({ day, entries: list }, i) => (
         <section key={day} aria-label={day}>
           <DayHeader day={day} today={today} count={day === today ? todayCount : null} aside={i === 0 ? headerAside : undefined} />
           <ol className="lg:pt-1">
-            {list.map((it) => (
-              <TimelineSlot key={it.id} at={it.timelineAt}>
-                <FeedItem item={it} read={readSet.has(it.id)} onOpen={markRead} showTags at={it.timelineAt} />
+            {list.map(({ item, group, at }) => (
+              <TimelineSlot key={item.id} at={at}>
+                <FeedItem item={item} group={group} filters={filters} groupScope="browse"
+                  read={readSet.has(item.id)} onOpen={markRead} showTags at={at} />
               </TimelineSlot>
             ))}
           </ol>

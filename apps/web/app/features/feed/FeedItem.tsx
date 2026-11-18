@@ -21,6 +21,7 @@ export interface FeedItemProps {
   item: FeedItemSummary;
   group?: GroupInfo | null;
   filters?: TimelineFilters;
+  groupScope?: "browse";
   read?: boolean;
   onOpen?: (id: string) => void;
   /** Show category and tags under the text (全部动态, search). */
@@ -29,7 +30,7 @@ export interface FeedItemProps {
   at?: string;
 }
 
-export const FeedItem = memo(function FeedItem({ item, group, filters, read = false, onOpen, showTags = false, at }: FeedItemProps) {
+export const FeedItem = memo(function FeedItem({ item, group, filters, groupScope, read = false, onOpen, showTags = false, at }: FeedItemProps) {
   const isX = item.channel === "x" && !!item.x;
   const open = () => {
     rememberPreview(item);
@@ -110,7 +111,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
       )}
       {group && showSources && (
         <div className="mt-2 hidden lg:block">
-          <GroupSources group={group} filters={filters} parentId={item.id} />
+          <GroupSources group={group} filters={filters} parentId={item.id} scope={groupScope} />
         </div>
       )}
 
@@ -121,7 +122,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
       )}
 
       {/* Phones: duplicate reports open in a sheet. */}
-      {group && showSources && <GroupButton group={group} filters={filters} parentId={item.id} />}
+      {group && showSources && <GroupButton group={group} filters={filters} parentId={item.id} scope={groupScope} />}
     </article>
   );
 });

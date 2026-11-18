@@ -3,12 +3,12 @@ import type { PoolResponse, TimelineFilters } from "@aihot/contracts/site";
 import { beijingDate, beijingMidnight } from "@aihot/contracts/time";
 import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import { entityIdentity } from "../editorial/vocabulary.ts";
-import { cachedByKey, sharedSearch } from "../lib/cache.ts";
+import { sharedSearch } from "../lib/cache.ts";
 import {
   categoryCondition, channelCondition, ITEM_COLUMNS, ITEM_FROM, seatHolders, tagCondition, toFeedItemSummary,
   type ItemRow,
 } from "./items.ts";
-import { browsedCondition, listedCondition } from "./scope.ts";
+import { browsedCondition, listedCondition, ownFactEvidenceCondition } from "./scope.ts";
 
 export const POOL_PAGE_SIZE = 40;
 export const POOL_MAX_PAGES = 50;
@@ -96,16 +96,6 @@ export function publicMatchCondition(terms: string[]) {
   );
 }
 
-/** The listed items under the filters, up to the pages the pool offers. */
-async function listedCount(f: TimelineFilters, now: Date): Promise<number> {
-  return Number(one(await sql<{ n: number }[]>`
-    SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${browsedCondition(now)}
-      ${channelCondition(f.channel)} ${categoryCondition(f.category)} ${tagCondition(f.tag)} LIMIT ${POOL_MAX_PAGES * POOL_PAGE_SIZE}) t`).n);
-}
-
-/** Without a search the total only sets the page count: it is reused for 30 seconds per filter. */
-const poolTotal = cachedByKey((f: TimelineFilters) => JSON.stringify([f.channel, f.category, f.tag]), (f) => listedCount(f, new Date()), { freshMs: 30_000, maxStaleMs: 30_000, maxKeys: 200 });
-
 export interface PoolQuery extends TimelineFilters {
   q?: string | null;
   tab?: "time" | "relevance";
@@ -134,6 +124,8 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)}`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;
+  const todayStart = beijingMidnight(beijingDate(now));
+  type PoolMeta = { today_count: number; updated_at: Date | null };
 
   // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small
   // table to scan for one- and two-character ones.
@@ -141,15 +133,44 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
   const like = (col: ReturnType<typeof sql>, t: string) => sql`${col} LIKE ${"%" + t + "%"}`;
   const run = async (db: Db) => {
     if (!q) {
-      // Page ids from the timeline index first, then the joins for those rows only.
-      const rows = await db<ItemRow[]>`
-        WITH page AS (
-          SELECT p.article_id FROM publications p WHERE ${browsedCondition(now)} ${filters}
-          ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
-        SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
-        ORDER BY p.timeline_at DESC, p.article_id DESC`;
-      // A fixed clock (tests, replays) never shares cached totals.
-      return { rows, total: query.now ? await listedCount(query, now) : await poolTotal(query) };
+      // The first browsable report's timeline date holds the group's place, including archived backfills.
+      type GroupedRow = Omit<ItemRow, "id"> & PoolMeta & {
+        id: string | null;
+        total: number;
+        group_fact_id: string | null;
+        report_count: number;
+        source_count: number;
+      };
+      const result = await db<GroupedRow[]>`
+        WITH candidates AS (
+          SELECT p.article_id, p.source_id, p.discovered_at, p.timeline_at,
+            CASE WHEN p.fact_id IS NOT NULL AND ${ownFactEvidenceCondition()} THEN p.fact_id END AS fact_id
+          FROM publications p WHERE ${browsedCondition(now)} ${filters}
+        ), groups AS MATERIALIZED (
+          SELECT fact_id, (array_agg(article_id ORDER BY discovered_at, article_id))[1] AS article_id,
+            (array_agg(timeline_at ORDER BY discovered_at, article_id))[1] AS anchor_at,
+            count(*)::int AS report_count, count(DISTINCT source_id)::int AS source_count
+          FROM candidates GROUP BY fact_id, CASE WHEN fact_id IS NULL THEN article_id END
+        ), page AS (
+          SELECT * FROM groups ORDER BY anchor_at DESC, article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
+        ), meta AS (
+          SELECT least(count(*), ${cap})::int AS total, count(*) FILTER (WHERE anchor_at >= ${todayStart})::int AS today_count,
+            (SELECT max(updated_at) FROM publications WHERE eligible) AS updated_at
+          FROM groups
+        )
+        SELECT hydrated.*, meta.* FROM meta LEFT JOIN LATERAL (
+          SELECT ${ITEM_COLUMNS}, f.public_id::text AS group_fact_id, page.report_count, page.source_count
+          ${ITEM_FROM} JOIN page ON page.article_id = p.article_id LEFT JOIN facts f ON f.id = page.fact_id
+        ) hydrated ON true
+        ORDER BY hydrated.timeline_at DESC, hydrated.id DESC`;
+      const rows = result.filter((row): row is GroupedRow & ItemRow => row.id !== null);
+      const groups: NonNullable<PoolResponse["groups"]> = Object.fromEntries(rows.flatMap((row) =>
+        row.group_fact_id && row.report_count > 1 ? [[row.id, {
+          factId: row.group_fact_id, anchorAt: row.timeline_at.toISOString(),
+          reportCount: row.report_count, additionalSourceCount: row.source_count - 1,
+        }]] : []));
+      const { total, today_count, updated_at } = one(result);
+      return { rows, total, groups, browseMeta: { today_count, updated_at } };
     }
     if (tab === "relevance") {
       // Rank narrow rows first: no article bodies or translations enter the sort/count. The public
@@ -211,17 +232,17 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
     return { rows, total: Number(n) };
   };
 
-  const { rows, total } = q ? await withSearchCapacity(run) : await run(sql);
-  const today = beijingDate(now);
-  const meta = one(await sql<{ today_count: number; updated_at: Date | null }[]>`
+  const { rows, total, groups, browseMeta } = q ? await withSearchCapacity(run) : await run(sql);
+  const meta = browseMeta ?? one(await sql<PoolMeta[]>`
     SELECT (SELECT count(*) FROM publications p
-      WHERE ${browsedCondition(now)} AND p.timeline_at >= ${beijingMidnight(today)} ${filters}) AS today_count,
+      WHERE ${browsedCondition(now)} AND p.timeline_at >= ${todayStart} ${filters}) AS today_count,
       (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`);
 
   const holders = await seatHolders(rows, now);
   return {
     filters: { channel: query.channel, category: query.category, tag: query.tag, q, tab },
     items: rows.map((r) => (holders.has(r.id) ? { ...toFeedItemSummary(r), reason: null, sameEvent: holders.get(r.id)! } : toFeedItemSummary(r))),
+    ...(groups && { groups }),
     page,
     pageCount: Math.min(POOL_MAX_PAGES, Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))),
     total,

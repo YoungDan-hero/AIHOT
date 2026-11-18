@@ -5,6 +5,7 @@ import { after, test } from "node:test";
 import { closeDb, sql } from "@aihot/backend/db";
 import { pickRepresentative, representativePriority } from "@aihot/backend/publication/representative";
 import { loadTimeline } from "@aihot/backend/publication/timeline";
+import { loadPool } from "@aihot/backend/publication/pool";
 import { loadStoryFollowups } from "@aihot/backend/publication/followups";
 import { loadGroupReports } from "@aihot/backend/publication/groups";
 import { loadItemDetail } from "@aihot/backend/publication/detail";
@@ -147,6 +148,75 @@ test("item detail counts the same fact evidence as its expanded group", async ()
   assert.equal(expanded.reports.length, 2);
   assert.equal(detail.item.group!.reportCount, expanded.reports.length);
   assert.equal(detail.item.group!.additionalSourceCount, 1);
+});
+
+test("default browsing paginates facts at their first report and opens only matching browse reports", async () => {
+  const originalSource = await source("pool-origin", "T1");
+  const laterSource = await source("pool-repost", "T2");
+  const originalFact = await story("首条动态");
+  const [newFact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id,story_id,title)
+    VALUES (${`f-${randomUUID()}`}, ${originalFact.storyId}, '实质新进展') RETURNING id`;
+  const browseTag = `${key}-browse`;
+  const clock = new Date("2030-01-02T18:00:00+08:00");
+  const originalAt = "2030-01-01T09:00:00+08:00";
+  const lateAt = "2030-01-02T17:00:00+08:00";
+  const add = async (sourceId: string, title: string, date: string, options: { score?: number; role?: string; newFact?: boolean; overseas?: boolean; archivedAt?: string } = {}) => {
+    const fact = options.newFact ? { ...originalFact, factId: newFact!.id } : originalFact;
+    const id = await report(sourceId, fact, { title, hours: 3, selected: false, ...options });
+    await sql`UPDATE publications SET tags=${[browseTag]}, category=${options.overseas ? "overseas" : "domestic"},
+      timeline_at=${new Date(options.archivedAt ?? date)}, discovered_at=${new Date(date)}, search_text='poolfoldneedle' WHERE article_id=${id}`;
+    return id;
+  };
+  const original = await add(originalSource, "首条动态", originalAt);
+  const development = await add(originalSource, "独立的新进展", "2030-01-02T11:00:00+08:00", { newFact: true });
+  const mention = await add(laterSource, "提及同一事件的报道", "2030-01-01T16:00:00+08:00", { role: "mention" });
+  const composite = await add(laterSource, "只引用事实的综合稿", "2030-01-01T17:00:00+08:00");
+  await sql`UPDATE analyses SET output = output || '{"scope":"composite"}'::jsonb WHERE article_id=${composite}`;
+  const low = await add(laterSource, "低于浏览门槛", "2030-01-01T06:00:00+08:00", { score: 1 });
+  const withdrawn = await add(laterSource, "已撤下的稿件", "2030-01-01T07:00:00+08:00");
+  const pending = await add(laterSource, "尚未公开的稿件", "2030-01-01T08:00:00+08:00");
+  await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${withdrawn}`;
+  await sql`UPDATE publications SET selected=true, visible_after='2030-01-03' WHERE article_id=${pending}`;
+  await sql`
+    INSERT INTO articles (id,source_id,identity_key,url,title,timeline_at,discovered_at)
+    SELECT ${`${browseTag}-`} || n, ${originalSource}, ${`${browseTag}-`} || n, 'https://example.org/' || n, '独立报道',
+      '2030-01-01 15:00+08'::timestamptz, '2030-01-01 15:00+08'::timestamptz
+    FROM generate_series(1,39) n`;
+  await sql`
+    INSERT INTO publications (article_id,source_id,title,url,channel,first_party,timeline_at,discovered_at,sort_at,eligible,tags)
+    SELECT id,source_id,title,url,'news',true,timeline_at,discovered_at,timeline_at,true,${[browseTag]}
+    FROM articles WHERE id LIKE ${`${browseTag}-%`}`;
+
+  const query = { channel: "all" as const, category: null, tag: browseTag, now: clock };
+  const before = await loadPool(query);
+  const originalPage = await loadPool({ ...query, page: 2 });
+  assert.equal(before.total, 43);
+  assert.equal(before.pageCount, 2);
+  assert.equal(before.todayCount, 1);
+  assert.equal(before.items[0]?.id, development);
+  assert.ok(before.items.some((item) => item.id === mention));
+  assert.ok(before.items.some((item) => item.id === composite));
+  assert.ok(originalPage.items.some((item) => item.id === original));
+
+  const repost = await add(laterSource, "迟到的海外转载", lateAt, { overseas: true });
+  const archivalRepost = await add(originalSource, "迟到的归档转载", lateAt, { archivedAt: "2029-12-29T13:00:00+08:00" });
+  const after = await loadPool(query);
+  const afterPage = await loadPool({ ...query, page: 2 });
+  assert.deepEqual(after.items.map((item) => item.id), before.items.map((item) => item.id));
+  assert.deepEqual(afterPage.items.map((item) => item.id), originalPage.items.map((item) => item.id));
+  assert.equal(after.todayCount, 1);
+  assert.equal(after.total, 43);
+  assert.deepEqual(afterPage.groups?.[original], {
+    factId: originalFact.factPublicId, anchorAt: new Date(originalAt).toISOString(), reportCount: 3, additionalSourceCount: 1,
+  });
+  const expanded = await loadGroupReports({ ...query, factPublicId: originalFact.factPublicId, scope: "browse" }, clock);
+  assert.deepEqual(new Set(expanded?.reports.map((item) => item.id)), new Set([repost, original, archivalRepost]));
+  const overseas = await loadPool({ ...query, category: "overseas" });
+  assert.deepEqual(overseas.items.map((item) => item.id), [repost]);
+  assert.equal(overseas.todayCount, 1);
+  const search = await loadPool({ ...query, q: "poolfoldneedle" });
+  assert.ok([original, repost, archivalRepost, low].every((id) => search.items.some((item) => item.id === id)));
+  assert.equal(search.groups, undefined);
 });
 
 // A newer archive report may remain readable without qualifying as news. It cannot become the
