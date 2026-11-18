@@ -12,7 +12,6 @@ import { compositeCondition, evidenceCondition, listedCondition, storyReportCond
 import { publicSourceName } from "./rules.ts";
 import { latestHotRanking, rankingExtras } from "./hot.ts";
 import { storyTexts } from "./story-text.ts";
-import { topicsOfStory } from "./topics.ts";
 import { mentionsIn } from "./mentions.ts";
 import { itemUrl, storyUrl, v1StoryApiUrl } from "./links.ts";
 
@@ -161,7 +160,7 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
     ? await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM ${currentSignals()} cs WHERE story_id = ${storyId} AND source_id = ANY(${behind}::text[])
                                   AND observed_at > ${now}::timestamptz - interval '48 hours' AND observed_at <= ${now}`
     : [{ n: 0 }];
-  const [related, topics, texts] = await Promise.all([relatedStories(storyId, now), topicsOfStory(storyId, now), storyTexts([storyId], now)]);
+  const [related, texts] = await Promise.all([relatedStories(storyId, now), storyTexts([storyId], now)]);
   const text = texts.get(storyId)!;
   // Historical stories without listed evidence retain their latest readable report.
   const latest = text.latest ?? latestReport;
@@ -195,7 +194,6 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
     timeline: reports.slice(0, 100).map(reportView),
     heat: heat.map((h): HeatPoint => ({ hour: h.hour.toISOString(), heat: Number(h.heat), participants: h.participants })),
     related: related.map((r) => ({ publicId: r.public_id, title: r.title, relation: r.relation })),
-    topics,
     mentions: await mentionsIn([text.digest ?? text.summary ?? excerpt?.text]),
   };
 }

@@ -8,7 +8,6 @@ import { STORY_INDEX_MIN_REPORTS } from "@aihot/contracts/site";
 import { ABOUT, ACCESS, AGENT, POLICY, SITE } from "@aihot/site";
 import { config, REPO_ROOT } from "../config.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { loadChangelog } from "../site/meta.ts";
 import { latestHotRanking } from "./hot.ts";
 import { eventPageCondition, ITEM_FROM, thinPageCondition } from "./items.ts";
 import { sql } from "../db.ts";
@@ -17,7 +16,6 @@ import { escapeXml } from "../lib/text.ts";
 import { siteUrl } from "./links.ts";
 import { evidenceCondition, listedCondition, selectedCondition, storyReportCondition } from "./scope.ts";
 import { storyTexts } from "./story-text.ts";
-import { topicPageCounts } from "./topics.ts";
 import { serverModules, type SitemapEntry } from "../modules.ts";
 
 const MAX_URLS = 45_000;
@@ -62,7 +60,6 @@ export async function loadDiscoveryEntries(at = new Date(), limits?: { urls: num
         SELECT value #>> '{}' FROM jsonb_path_query(r.content, '$.**.itemId') AS cited(value))
     ) citations ON true ORDER BY r.kind, r.key DESC`;
   const reportRevision = (kind: string) => sha256(stableJson(reports.filter((r) => r.kind === kind)));
-  const topics = await topicPageCounts(at, !limits);
   entries.push(
     { loc: "/", revision: activity?.selected ?? "", changefreq: "hourly", priority: 1 },
     { loc: "/all", revision: activity?.listed ?? "", changefreq: "hourly", priority: 0.9 },
@@ -71,21 +68,12 @@ export async function loadDiscoveryEntries(at = new Date(), limits?: { urls: num
     { loc: "/daily/archive", revision: reportRevision("daily"), changefreq: "daily", priority: 0.7 },
     { loc: "/weekly", revision: reportRevision("weekly"), changefreq: "weekly", priority: 0.7 },
     { loc: "/monthly", revision: reportRevision("monthly"), changefreq: "monthly", priority: 0.6 },
-    { loc: "/topics", revision: sha256(stableJson(topics)), changefreq: "daily", priority: 0.7 },
     { loc: "/agent", revision: sha256(stableJson([SITE, ACCESS, AGENT])), changefreq: "weekly", priority: 0.7 },
     { loc: "/about", revision: sha256(stableJson(ABOUT)), changefreq: "monthly", priority: 0.5 },
     { loc: "/terms", revision: sha256(stableJson([POLICY.terms, await readFile(path.join(REPO_ROOT, "site/pages/terms.md"), "utf8")])), changefreq: "monthly", priority: 0.4 },
     { loc: "/privacy", revision: sha256(stableJson([POLICY.privacy, await readFile(path.join(REPO_ROOT, "site/pages/privacy.md"), "utf8")])), changefreq: "monthly", priority: 0.4 },
-    { loc: "/changelog", revision: sha256(stableJson(loadChangelog())), changefreq: "weekly", priority: 0.5 },
   );
   for (const r of reports) entries.push({ loc: `/${r.kind}/${r.key}`, lastmod: r.t, newsAt: r.changed, revision: r.revision, changefreq: "monthly", priority: 0.6 });
-  for (const t of topics) {
-    if (!t.indexable) continue;
-    entries.push({ loc: `/topics/${t.slug}`, revision: t.revision, changefreq: "daily", priority: 0.6 });
-    // A topic's archive pages are reached from the topic page, the one that stands for the topic in
-    // search: the sitemap leaves them out, notifications still say when they change.
-    if (!limits) for (let p = 2; p <= t.pages; p++) entries.push({ loc: `/topics/${t.slug}/page/${p}`, revision: t.revision });
-  }
   // A story needs listed evidence of its own, and STORY_INDEX_MIN_REPORTS reports: with fewer its page is
   // noindex everywhere, so neither the sitemap nor notifications list it. Its identity follows current
   // readable reports as well as the digest, so a correction or regrouping is visible even when latest_at
@@ -136,7 +124,6 @@ function sectionOf(e: Entry): string {
   if (e.section) return e.section;
   if (e.loc.startsWith("/story/")) return "stories";
   if (e.loc.startsWith("/items/")) return "items";
-  if (/^\/topics(\/|$)/.test(e.loc)) return "topics";
   if (/^\/(daily|weekly|monthly)(\/|$)/.test(e.loc)) return "reports";
   return "pages";
 }

@@ -11,7 +11,7 @@
 `itemType` 必须七选一：
 
 - `drama_release`：具体短剧作品或项目的开发、立项、制作、发行或上线变化
-- `platform_update`：短剧平台、创作或发行服务的规则、产品、价格、能力或入口变化
+- `platform_update`：短剧或新媒体内容平台、创作或发行服务的规则、产品、价格、能力或入口变化
 - `production_method`：可复用的编剧、拍摄、剪辑、AI制作、本土化、发行或运营方法
 - `industry_report`：有统计范围、周期和来源的行业研究、报告或榜单
 - `industry_event`：融资、收购、监管、诉讼、商业动作或人事

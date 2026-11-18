@@ -97,11 +97,15 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     ...(idCards ? { method: "POST", body: `page_no=1&page_size=${source.config.adapter === "bianews_news" ? 20 : 50}` } : {}), timeoutMs: 25_000,
   }));
   let text = res.text();
-  // Electronic newspapers point a permanent listing address at today's issue with an immediate meta refresh.
+  // Electronic newspapers point a permanent listing address at today's issue with a static redirect.
   for (let hop = 0; ; hop++) {
     const $ = cheerio.load(text);
     const refresh = $('meta[http-equiv]').toArray().find(el => $(el).attr('http-equiv')?.toLowerCase() === 'refresh');
-    const target = refresh && /^\s*0\s*;\s*url\s*=\s*["']?([^"']+?)["']?\s*$/i.exec($(refresh).attr('content') ?? '')?.[1];
+    const metaTarget = refresh && /^\s*0\s*;\s*url\s*=\s*["']?([^"']+?)["']?\s*$/i.exec($(refresh).attr('content') ?? '')?.[1];
+    const paperTarget = /^\s*<script>\s*window\.parent\.location\.href\s*=\s*["'](\d{4}\/\d{2}\/\d{2}\/page_list_\d{8}\.html)["'];?\s*<\/script>\s*$/.exec(text)?.[1];
+    const paperDay = /\/\d{4}\/\d{2}\/\d{2}\/page_list_(\d{8})\.html$/.exec(new URL(res.url).pathname)?.[1];
+    const articleList = paperDay && $(`a[href="article_list_${paperDay}.html"]`).first().attr("href");
+    const target = metaTarget ?? paperTarget ?? articleList;
     if (!target) break;
     const next = new URL(target, res.url);
     if (hop >= 2 || next.origin !== new URL(res.url).origin) throw new FetchError("listing meta refresh exceeds same-origin limit");
@@ -184,7 +188,15 @@ export function fromMarkdown(md: string, base: string, source: SourceRow): Candi
 
 export function fromHtml(html: string, base: string, source: SourceRow): Candidate[] {
   const c = source.config;
-  const $ = cheerio.load(html);
+  let $ = cheerio.load(html);
+  if (c.adapter === "jcms_records") {
+    // JCMS embeds its visible listing in inert XML blocks, with one HTML row per CDATA record.
+    const records = $('script[type="text/xml"]').toArray().flatMap((block) => {
+      const recordSet = /<recordset>([\s\S]*?)<\/recordset>/i.exec($(block).text())?.[1] ?? "";
+      return Array.from(recordSet.matchAll(/<record>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/record>/gi), (match) => match[1]);
+    });
+    $ = cheerio.load(records.join("\n"));
+  }
   const out: Candidate[] = [];
   const seen = new Set<string>();
   const listing = String(c.url ?? base).replace(JINA_PREFIX, "");
@@ -194,6 +206,20 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
   const nodes = itemSel ? $(itemSel).toArray() : $("a[href]").toArray();
   for (const node of nodes) {
     const el = $(node);
+    if (c.inlineBodySelector && sectionsArePosts) {
+      const id = el.attr("id");
+      if (!id || !/^[A-Za-z0-9_:-][A-Za-z0-9_.:-]*$/.test(id)) continue;
+      const url = absolute(`#${id}`, base);
+      if (!url || seen.has(url) || !allowed(url, source)) continue;
+      const title = collapseWhitespace(el.find(c.titleSelector).first().text());
+      const date = elementDate(el.find(c.publishedAtSelector).first(), c.publishedAtUtcOffset);
+      const bodyHtml = sanitizeBody(el.find(c.inlineBodySelector).first().html() ?? "", base);
+      const bodyText = stripTags(bodyHtml);
+      if (!title || !date.publishedAt || !bodyText) continue;
+      seen.add(url);
+      out.push({ url, identityKey: `url:${url}`, title, ...date, bodyHtml, bodyText, bodyStatus: "ok" });
+      continue;
+    }
     if (c.adapter === "huanqiu_news") {
       const field = (name: string) => el.find(`textarea.item-${name}`).text().trim();
       const id = field("aid"), host = field("cnf-host"), title = collapseWhitespace(field("title"));

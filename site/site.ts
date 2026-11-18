@@ -28,14 +28,6 @@ export const SITE = {
   subject: "短剧",
   /** 首页的完整标题（浏览器标签、搜索结果）。 */
   homeTitle: "短剧前线 — 国内与海外短剧资讯 · 热点与日报",
-  /** 主题目录页（/topics）的标题。 */
-  topicsTitle: "短剧主题：国内与海外、平台与公司、制作与商业的最新动态",
-  /** 反馈表单输入框里的示例。 */
-  feedbackExample: "例如：这条短剧资讯的日期或来源有误；希望增加某个平台、市场或信源……",
-  /** 反馈页标题下面的一句话。 */
-  feedbackLead: "发现 bug、想要的功能、看不顺眼的地方，都可以告诉我们。",
-  /** 反馈表单邮箱框里的提示。 */
-  feedbackEmailHint: "留下邮箱，我们可以回信联系你",
   /** 一句话介绍：搜索引擎、分享卡片、RSS、llms.txt 会用。 */
   description: `以国内短剧市场为主，兼顾海外动态，追踪平台、制作、政策与商业动态，汇总原文来源，${EDITION_WHEN.daily} 出一份中文日报。`,
   /** llms.txt 里一句话介绍下面的一段详细介绍（选填）。 */
@@ -111,7 +103,7 @@ export const POLICY = {
     headers: null as null | Record<string, string>,
   },
   privacy: {
-    description: "本站如何处理浏览器本地数据、反馈资料与访问日志。",
+    description: "本站如何处理浏览器本地数据与访问日志。",
     /** llms.txt 里对这一页的一句说明（选填）。 */
     covers: null as string | null,
   },
@@ -125,10 +117,10 @@ export const POLICY = {
 /** 导航（电脑侧栏、手机底栏、“我的”页）。 */
 export const NAV = {
   /**
-   * 不放进导航的引擎入口，目前只支持热点榜（"/hot"）和主题（"/topics"）。页面照样能打开；原来回到它的返回按钮和链接改回精选，
+   * 不放进导航的引擎入口，目前只支持热点榜（"/hot"）。页面照样能打开；原来回到它的返回按钮和链接改回精选，
    * 写 "/hot" 时首页也不放当前热点。
    */
-  hidden: [] as Array<"/hot" | "/topics">,
+  hidden: [] as Array<"/hot">,
 };
 
 /** 条目卡片和详情页上的几处说法和显示。 */
@@ -177,18 +169,14 @@ export const ABOUT = {
     wechat?: ContactCard;
     feishu?: ContactCard;
   },
-  /** 页面底部的版权与下架说明，中间接“反馈页”的链接。 */
-  copyright: [`${SITE.name} 是聚合摘要和阅读索引，原文版权归各来源所有。如果你是来源方，希望更正、下架或调整展示方式，可以通过`, "联系我们。"] as [string, string],
+  /** 页面底部的版权说明。 */
+  copyright: `${SITE.name} 是聚合摘要和阅读索引，原文版权归各来源所有。`,
   /** 页面底部“使用规则”链接的锚点 id（选填）：外部文档写死过这个锚点就填上，以后不要改。 */
   termsAnchor: null as string | null,
 } as const;
 
 /** 后台页面上给管理员的提示（选填）。 */
 export const ADMIN = {
-  /** “反馈”页标题下的一行。 */
-  feedbackNote: null as string | null,
-  /** 确认框里补的一句本站规定：封禁反馈来源时。 */
-  banNote: null as string | null,
   /** 确认框里补的一句本站规定：调整付费服务的请求上限时。 */
   budgetNote: null as string | null,
 };
@@ -216,7 +204,7 @@ export const REPORTS = {
    * 周报月报没有总述时的那句话，以及订阅说明里的“按栏目分好的大事”都用它。
    */
   entry: { measure: "件", noun: "大事" },
-  /** 报头上其余几个数字后面的说法；精选数和日报期数在关于页、主题页也这样写。 */
+  /** 报头上其余几个数字后面的说法；精选数和日报期数在关于页也这样写。 */
   metricUnits: { sourcesCount: "个来源", firstPartyEvents: "件一手发布", selectedCount: "条精选", reportsCovered: "期日报" },
   /** 报告分享图上“共几条”的说法。 */
   shareUnit: "件大事",
@@ -251,7 +239,7 @@ export const COMMUNITY_FEEDS: { dev: string[]; hn: string[] } = {
   hn: [],
 };
 
-/** 各页分享图（/og/pages/*.png）上的文字。主题目录页的那张按主题数自动生成。 */
+/** 各页分享图（/og/pages/*.png）上的文字。 */
 export const CARDS: Record<string, { kicker: string; title: string; subtitle: string; accent?: "hot" | "amber" }> = {
   site: { kicker: subjectAfter("每日", "精选"), title: SITE.tagline, subtitle: SITE.description },
   all: { kicker: subjectAfter("全部", "动态"), title: "国内与海外短剧动态，一站阅读", subtitle: "按时间汇总，国内动态与海外动态并列筛选，跨市场报道单独归类。" },
@@ -261,9 +249,7 @@ export const CARDS: Record<string, { kicker: string; title: string; subtitle: st
   monthly: { kicker: withSubject("月报"), title: "一个月的变化", subtitle: "月度主线与关键事件回顾。" },
   about: { kicker: "关于", title: `关于 ${SITE.name}`, subtitle: SITE.description },
   terms: { kicker: "使用规则", title: `${SITE.name} 使用规则`, subtitle: "网页、API、RSS 与 MCP 的使用范围。" },
-  privacy: { kicker: "隐私说明", title: `${SITE.name} 隐私说明`, subtitle: "访问日志、浏览器本地数据与反馈资料的处理方式。" },
-  changelog: { kicker: "更新日志", title: `${SITE.name} 更新日志`, subtitle: "功能更新、优化、公告与下线记录。" },
-  feedback: { kicker: "反馈", title: "告诉我们哪里可以更好", subtitle: "内容、功能、接入，或来源方的更正与下架请求。" },
+  privacy: { kicker: "隐私说明", title: `${SITE.name} 隐私说明`, subtitle: "访问日志与浏览器本地数据的处理方式。" },
   agent: { kicker: "Agent 接入", title: `把 ${SITE.name} 接进你的 Agent`, subtitle: "MCP、RSS、API 三种方式，匿名只读，无需 API Key。" },
 };
 
@@ -520,7 +506,7 @@ export function withSubject(noun: string): string {
   return /[A-Za-z0-9]$/.test(SITE.subject) ? `${SITE.subject} ${noun}` : `${SITE.subject}${noun}`;
 }
 
-/** “按主题看短剧”“往期短剧日报”这类说法：行业词接在中文后面，英文词前加空格，中文词不加；noun 照 withSubject 接上。 */
+/** “往期短剧日报”这类说法：行业词接在中文后面，英文词前加空格，中文词不加；noun 照 withSubject 接上。 */
 export function subjectAfter(text: string, noun?: string): string {
   const gap = /^[A-Za-z0-9]/.test(SITE.subject) ? " " : "";
   return `${text}${gap}${noun ? withSubject(noun) : SITE.subject}`;
@@ -548,7 +534,4 @@ export const SEO_TITLES = {
   /** 日报、周报、月报的最新一期（/daily、/weekly、/monthly）；date 是这一期的日期：“11月7日”“10月26日—11月1日”“2026年10月”。 */
   latestReport: (kind: "daily" | "weekly" | "monthly", date: string): string =>
     ({ daily: `${withSubject("日报")}：${subjectAfter("每日", "新闻")}（${date}）`, weekly: `${withSubject("周报")}：一周大事回顾（${date}）`, monthly: `${withSubject("月报")}：${date} 大事回顾` })[kind],
-  /** 主题页第一页：公司搜“最新消息”，方向和内容类型搜“最新进展”；updated 是最新一篇精选的日期（“11月7日”），没有时为 null。 */
-  topic: (name: string, group: "company" | "field" | "genre", updated: string | null): string =>
-    `${name} ${group === "company" ? "最新消息与动态" : "最新动态与进展"}${updated ? `（${updated}更新）` : ""}`,
 };

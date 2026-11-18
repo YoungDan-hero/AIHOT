@@ -3,7 +3,7 @@
 // sideways (2026-10-16). Pages must fit the window at phone, narrow-phone, unfolded-foldable (669 upright,
 // 711 for an Android foldable, which reads the desktop pages beside the rail) and full-sidebar (941) widths.
 // Narrow desktops read in one column (2026-10-30): what a side column holds there (an article's reason,
-// topics, original and outline; the switch between reports) must stay within reach.
+// tags, original and outline; the switch between reports) must stay within reach.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { chromium, webkit, expect, type Browser, type Page } from "@playwright/test";
@@ -16,14 +16,13 @@ const keys = { daily: "2026-10-15", weekly: "2026-W42", monthly: "2026-10" };
 const groupCard = { key: "g1", anchorAt: at, item: feedItem({ id: "rep-1", title: "代表文章" }), group: { factId: "f1", additionalSourceCount: 1, reportCount: 2, memberIds: ["rep-1"] } };
 const outline = Array.from({ length: 4 }, (_, i) => ({ id: `part-${i}`, level: 2, text: `第${i + 1}部分` }));
 const article = itemDetail({
-  id: "fit", title: "宽度检查文章", topics: [{ slug: "fixture-topic", name: "固定主题" }], outline,
+  id: "fit", title: "宽度检查文章", tags: ["固定标签"], outline,
   body: { zh: outline.map((o) => `<h2 id="${o.id}">${o.text}</h2><p>${"固定正文。".repeat(40)}</p>`).join(""), original: null, zhKind: "original", complete: true },
 });
 
 const api = fakeApi((url) => {
   const path = url.pathname;
   if (path === "/api/site/items/fit") return article;
-  if (path === "/api/site/topics") return { groups: [], topics: [] };
   if (path === "/api/site/hot") return { computedAt: at, windowHours: 48, entries: [] };
   if (path === "/api/site/timeline") return { filters: { channel: "all", category: null, tag: null }, cards: [groupCard], nextCursor: null, hot: null, dayCounts: { "2026-10-04": 1 } };
   if (path === "/api/site/groups/f1/reports") {
@@ -67,7 +66,9 @@ const PAGES: Array<{ path: string; ready: (page: Page, width: number) => Promise
     path: "/items/fit",
     ready: async (page: Page) => {
       await expect(page.getByText("固定推荐理由", { exact: true }).filter({ visible: true })).toBeVisible();
-      await expect(page.getByRole("link", { name: "固定主题" }).filter({ visible: true })).toBeVisible();
+      const tag = page.getByRole("link", { name: "#固定标签", exact: true }).filter({ visible: true });
+      await expect(tag).toBeVisible();
+      await expect(tag).toHaveAttribute("href", `/all?tag=${encodeURIComponent("固定标签")}`);
       await expect(page.getByRole("link", { name: /原文/ }).filter({ visible: true }).first()).toBeVisible();
       await page.getByRole("button", { name: "目录", exact: true }).filter({ visible: true }).click();
       await expect(page.getByRole("dialog", { name: "目录" }).getByRole("link", { name: "第4部分" })).toBeVisible();

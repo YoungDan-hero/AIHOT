@@ -3,9 +3,6 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "dependencies": {
-    "@aihot/github-ranking": "*"
-  },
   "exports": {
     ".": "./site.ts",
     "./models": "./models.ts",

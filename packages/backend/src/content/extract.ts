@@ -151,6 +151,28 @@ function settleEmbeddedArticle(document: ReturnType<typeof parseHTML>["document"
         if (String(detail?.contId) === id && String(detail?.data?.contId) === id) html = detail.data.textInfo?.content;
       } catch { /* Malformed page data is no article body. */ }
     }
+  } else if (page.hostname === "developer.cloud.tencent.com") {
+    const id = /^\/article\/(\d+)$/.exec(page.pathname)?.[1];
+    const container = document.querySelector(".mod-content__markdown");
+    const data = document.querySelector('script#__NEXT_DATA__[type="application/json"]')?.textContent;
+    if (id && data && container && !container.textContent?.trim()) {
+      try {
+        const props = JSON.parse(data)?.props;
+        const detail = props?.pageProps?.fallback?.[`#url:"/api/article/detail",params:#articleId:${id},,`];
+        const entry = detail?.articleInfo;
+        if (String(props?.query?.articleId) === id && String(entry?.articleId) === id
+          && String(detail?.articleData?.articleId) === id && entry.contentType === "markdown" && typeof entry.content === "string") {
+          html = markdownBody(entry.content, url);
+          const published = new Date(typeof detail.publishTime === "number" && detail.publishTime > 0 ? detail.publishTime * 1000 : NaN);
+          if (Number.isFinite(published.getTime())) {
+            const meta = document.createElement("meta");
+            meta.setAttribute("property", "article:published_time");
+            meta.setAttribute("content", published.toISOString());
+            document.head?.appendChild(meta);
+          }
+        }
+      } catch { /* Malformed page data is no article body. */ }
+    }
   }
   if (typeof html !== "string" || !html.trim() || !document.body) return;
   const article = document.createElement("article");
@@ -780,7 +802,6 @@ function dropLayoutClasses(document: Doc) {
 /** readable() on a page already parsed and checked (contentDocument). Readability changes the document. */
 export function readableDocument(document: Doc, url: string, rules: PageRules = {}): ExtractedBody | null {
   if (isVideoPageUrl(url)) return null;
-  const date = pagePublicationDate(document, rules.utcOffset);
   const declared = declaredCover(document, url);
   try {
     const base = document.createElement("base");
@@ -791,6 +812,7 @@ export function readableDocument(document: Doc, url: string, rules: PageRules = 
   }
   settleStreamedContent(document);
   const embeddedAttribution = settleEmbeddedArticle(document, url);
+  const date = pagePublicationDate(document, rules.utcOffset);
   settleInlineVisibility(document);
   preserveWidgets(document, rules.preserve ?? []);
   describeFigureDrawings(document);

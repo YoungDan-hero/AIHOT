@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { NAV, subjectAfter, withSubject } from "@aihot/site";
 import { webModules } from "../../site-modules";
 import {
-  IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconHistory, IconList, IconMessage, IconPlug, IconUser,
+  IconBolt, IconBookmark, IconDoc, IconFlame, IconHeart, IconList, IconPlug, IconRss, IconUser,
 } from "../icons";
 
 export interface NavItem {
@@ -15,8 +15,6 @@ export interface NavItem {
   end?: boolean;
   /** Other pages the entry stands for: they and the pages under them light it too. */
   covers?: string[];
-  /** Shows the unread dot while the changelog has news. */
-  changelog?: boolean;
 }
 
 const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
@@ -27,7 +25,6 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
       { to: "/all", label: subjectAfter("全部", "动态"), icon: IconList },
       { to: "/hot", label: "热点榜", icon: IconFlame },
       { to: "/daily", label: withSubject("日报"), icon: IconDoc, covers: ["/weekly", "/monthly"] },
-      { to: "/topics", label: "主题", icon: IconGrid },
       { to: "/starred", label: "收藏", icon: IconBookmark },
     ],
   },
@@ -35,9 +32,8 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
     title: "更多",
     items: [
       { to: "/agent", label: "Agent 接入", icon: IconPlug },
+      { to: "/sources", label: "信源", icon: IconRss },
       { to: "/about", label: "关于", icon: IconHeart },
-      { to: "/changelog", label: "更新日志", icon: IconHistory, changelog: true },
-      { to: "/feedback", label: "反馈", icon: IconMessage },
     ],
   },
 ];
@@ -47,7 +43,6 @@ export const inNav = (to: string) => !(NAV.hidden as readonly string[]).includes
 
 const UP = {
   "/hot": { name: "热点榜", back: "热点", tab: "hot" },
-  "/topics": { name: "主题", back: "全部主题", tab: "me" },
 } as const;
 
 /**
@@ -115,14 +110,13 @@ export interface Tab {
   icon: (p: { size?: number }) => ReactNode;
   /** As NavItem.covers. */
   covers?: string[];
-  changelog?: boolean;
 }
 
 const ENGINE_TABS: Tab[] = [
   { key: "featured", to: "/", label: "精选", icon: IconBolt },
   { key: "hot", to: "/hot", label: "热点", icon: IconFlame },
   { key: "daily", to: "/daily", label: "日报", icon: IconDoc, covers: ["/weekly", "/monthly"] },
-  { key: "me", to: "/more", label: "我的", icon: IconUser, changelog: true },
+  { key: "me", to: "/more", label: "我的", icon: IconUser },
 ];
 
 /** The tab bar: the engine's, the modules' before 我的. */

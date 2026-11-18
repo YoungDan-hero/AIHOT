@@ -1,7 +1,7 @@
 // The same issue through the website, JSON, Agent answer and RSS. Failure cases: withdrawal
 // changes a headline but drops its paragraph in projected indexes/feeds; written historical leads
 // keep withdrawn news; citations leak a scheduled selection; missing frozen summaries or corrected
-// publication dates differ between readers; discovery claims to list topics it actually omits; an
+// publication dates differ between readers; an
 // article's page names a later daily than the first one that carries it, a daily that no longer shows
 // it, or calls it the lead of an issue whose page leads with another.
 import { tag } from './setup.ts';
@@ -12,7 +12,6 @@ import { upsertMaterial } from '@aihot/backend/content/materials';
 import { publishArticle } from '@aihot/backend/publication/publish';
 import { feedIssues, loadReport, v1Dailies, v1Daily, v1Period, v1Periods } from '@aihot/backend/publication/reports';
 import { reportFeed } from '@aihot/backend/publication/feeds';
-import { llmsTxt } from '@aihot/backend/publication/llms';
 import { stopBoss } from '@aihot/backend/jobs/queue';
 import { buildApp } from '../apps/api/src/app.ts';
 import type { ReportKind, SiteItemDetail } from '@aihot/contracts/site';
@@ -126,12 +125,6 @@ test('a daily citation without a frozen summary, and a flash with an earlier fro
   assert.equal(v1.sections[0]!.items[0]!.summary, site.sections[0]!.items[0]!.summary);
   assert.equal(new Date(site.flashes[0]!.publishedAt!).toISOString(), generatedAt.toISOString(), 'the corrected publication date');
   assert.equal(v1.flashes[0]!.publishedAt, site.flashes[0]!.publishedAt);
-});
-
-test('discovery counts exactly the publicly indexed topics it lists', () => {
-  const text = llmsTxt({ hasDailies: false, hasWeekly: false, hasMonthly: false, topics: [{ slug: 'sample', name: 'Example', definition: 'Example topic' }], tools: [],
-    modules: { api: [], pace: [], pages: [], topics: [], access: [], usage: [], guideClients: [], ways: [] } });
-  assert.match(text, /（1 个主题，下一节逐个列出）/);
 });
 
 // A saved overview/section introduction can still repeat the withdrawn citation after the list and

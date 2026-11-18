@@ -20,19 +20,17 @@
 - **一起改的名字**：改 `SITE.name` 时顺手把 `SITE.organization.name`（给搜索引擎看的结构化数据）一起改掉；`SITE.crawlerName` 写你自己的抓取标识，别冒用别人的站名。
 - **上线或有人接入后不要再改的标识**：`SITE.mcpPrefix`（MCP 工具名前缀）、`PUBLIC_CATEGORIES`（公开接口与订阅源的类别合并和改名）、`ABOUT.termsAnchor`（外部写死过的锚点）；`SITE.interfaceVersion` 只升不降，改了已有公开字段或含义时升主版本。
 - **出刊时间写整点或半点**：`EDITION_TIMES`（北京时间 `HH:mm`）由每半小时一次的排程检查，日报窗口、缺期告警和各处时间文案都读它。
-- **导航隐藏的范围**：`NAV.hidden` 目前只开放 `"/hot"` 和 `"/topics"`（一并处理侧栏、底栏、“我的”页、返回链接、面包屑，以及隐藏 `"/hot"` 时的首页热点条和事件页名次；直接打开地址仍能访问）。
+- **导航隐藏的范围**：`NAV.hidden` 可隐藏热点榜 `"/hot"` 的导航、首页热点条和事件页名次；直接打开榜单地址仍能访问。
 - **限流说明与实际一致**：前面的反向代理真的按 IP 限流了，再填 `ACCESS.ratePerMinute`。
 
-## 2. 分类、标签和主题：`industry/taxonomy.ts`、`industry/topics.json`
+## 2. 分类和标签：`industry/taxonomy.ts`
 
 [`industry/taxonomy.ts`](../industry/taxonomy.ts) 定义类别（`CATEGORIES`）、报头重点发布计数（`RELEASE`）、总述免核对通用词（`PLAIN_TERMS`）、内容类型（`ITEM_TYPES`）、标签词表与近义词（`CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`、`TAG_SYNONYMS`），以及公司名录和防张冠李戴词典（`ENTITIES`、`IDENTITY_LEXICON`、`PUBLISHER_DOMAINS`、`IDENTITY_CONTEXT_ALIASES`）。各字段含义直接看文件内注释，改动时注意这几处联动：
 
 - **网址里的 `key` 上线后不改**：`CATEGORIES` 的 `key` 会进网址和订阅地址（`/all?category=`、`/feed/category/<key>.xml`）。要让某一类在公开接口、RSS 和 MCP 里并进另一类发布（网页上仍分开），在 `site/site.ts` 的 `PUBLIC_CATEGORIES` 里配。
 - **和提示词同步**：改了 `CATEGORIES`、标签词表或 `ITEM_TYPES`，要同步改 `industry/prompts/structure.md`（归类原则与标签规则）、`content-understanding.md`（内容类型枚举）和 `selection-score.md`（各内容类型的五维权重表）。
 - **不需要防张冠李戴时可清空**：`IDENTITY_LEXICON`、`PUBLISHER_DOMAINS`、`IDENTITY_CONTEXT_ALIASES` 用来保证标题摘要里提到的公司在原文里出现过；你的行业不需要这项检查时设为空数组 `[]`。
-- **`industry/topics.json`**（主题目录 `/topics`）：站点启动时读取，改完重新构建（`docker compose up -d --build`）生效。分 `company`（公司与机构）、`field`（方向）、`genre`（内容形态）三组，`slug` 上线后不要改：
-  - `company` 主题用 `entityId`（`ENTITIES` 的 id）收以这家公司为主体的报道；一篇报道的主体有几家公司时，标题里点了它的名才算。可选 `aliases`：搜索框里只搜这个词，也能找出这家公司的报道。
-  - `field` 和 `genre` 主题用 `tags` 收打了这些标签的报道。
+- **公司检索**：公司名称及其别名由 `ENTITIES` 配置，查询时可匹配以该公司为主体的报道。
 
 ## 3. 信源：`industry/sources.json`
 
@@ -64,7 +62,7 @@
 | `rules-domain.md` | 行业术语的翻译与保留规则（示例是 AI 术语：LLM 译作大语言模型、Token 保留英文……） |
 | `mend-wording.md` | 改用词：标题、摘要、推荐理由用了 `industry/wording.ts` 里列出的词时，让模型只改这些词 |
 | `summarize-*.md` | 其他内容的标题摘要写法 |
-| `structure.md` | 分类、标签、主体公司，判断是一条具体新闻还是讲多件事的综合稿，抽出新闻的事实（谁、做了什么、对什么，附原文出处和前提条件）。页面上的分类和标签、主题页、事件归组和日报都靠它 |
+| `structure.md` | 分类、标签、主体公司，判断是一条具体新闻还是讲多件事的综合稿，抽出新闻的事实（谁、做了什么、对什么，附原文出处和前提条件）。页面上的分类和标签、事件归组和日报都靠它 |
 | `group-*.md` | 事件归组：两篇报道是同一次发生、同一事件的后续，还是两件事；同时判断报道相对精选里已有的内容有没有新信息，没有的不进精选 |
 | `story-digest.md` | 事件页的综述（改之前用 [综述评测](story-digest-evaluation.md) 并排比较） |
 | `report-period.md`、`report-period-sections.md` | 周报月报的总述和栏目导读（日报按规则编排，不用提示词） |
@@ -103,11 +101,10 @@
 
 读者可以在“我的”页将字体从“默认字体”改为“浏览器默认字体”。后一项使用读者在浏览器中设置的标准字体，覆盖普通正文、表单和动态图表文字；代码仍用等宽字体，Logo、报头字和分享图片仍按站点品牌显示。字体选择只在当前浏览器保存，不转换简繁体。收藏页的版本 1 备份增加了可选的 `font` 字段，旧备份仍可导入；导入不会覆盖读者已经选择的浏览器字体。
 
-## 7. 页面文案：`site/pages/`、`site/public/`、`site/changelog.json`
+## 7. 页面文案（`site/pages/` 和 `site/public/`）
 
 - `pages/terms.md`、`pages/privacy.md`：使用规则和隐私说明。**现在是模板**，上线前按你的实际情况改写，必要时请专业人士看一下。
 - `public/`：网站根目录上的四个固定文件，替换占位符后发布：`robots.txt`、`manifest.webmanifest`（装到手机桌面时的名字和图标）、`openapi-v1.json`（公开 API 的说明），以及可选的 `.well-known/security.txt`（安全问题的联系方式）。只发布这四个文件，放进去的其他文件不会出现在网站上；没有的文件访问时是 404。文件里可以写这些占位符：`{{siteName}}`、`{{siteUrl}}`、`{{description}}`、`{{tagline}}`、`{{locale}}`，出刊时间 `{{dailyTime}}`、`{{weeklyTime}}`、`{{monthlyTime}}`，公开接口版本 `{{version}}`，逗号分隔的公开分类 `{{categoryList}}`；JSON 文件里 `enum` 或 `examples` 列表中的 `"{{categories}}"` 会换成公开分类的 key 列表。
-- `changelog.json`：更新日志。自带一条“网站上线”示例，上线前把它的 `date`、`time` 和 `latestVersion` 改成你的上线时间；示例正文里的框架署名（“用 AIHOT 开源框架搭起了这个站”）同样可留可删。新条目写在最前面，把 `latestVersion` 改成它的日期和时间。`kind` 是“更新”“优化”“公告”“下线”之一；要读者一定看到的加 `"urgent": true`（红色，标“重要”）。
 
 ## 8. 模型和部署
 
@@ -125,4 +122,4 @@ node scripts/smoke.ts --base http://localhost:3000   # 站点跑起来以后
 
 改写提示词、重新校准门槛不会让测试失败：测试按每一步实际渲染出的提示词认请求，门槛从 `industry/selection.ts` 读。`tests/` 里有些测试用的是示例行业的分类、标签和公司（比如 `ai-models`、“模型发布”、Anthropic）。改了 `industry/taxonomy.ts` 以后这些测试会失败，把例子换成你行业里的对应项即可，测的规则本身不用改。
 
-然后打开网站看一眼首页、全部动态、日报、主题页和关于页，再去后台“信源”页看信源是不是都抓成功了。
+然后打开网站看一眼首页、全部动态、日报和关于页，再去后台“信源”页看信源是不是都抓成功了。

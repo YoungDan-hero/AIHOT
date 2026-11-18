@@ -9,6 +9,5 @@
 | `brand/` | 本站图标、文字 Logo、短剧日报周报月报报头 |
 | `pages/` | 上线前待运营方核实的使用规则与隐私说明模板 |
 | `public/` | 站名、域名等占位符替换后发布的固定文件 |
-| `changelog.json` | 当前站点配置的更新说明 |
 
 运行和检查见 [`docs/short-drama.md`](../docs/short-drama.md)，通用部署方式见 [`docs/deploy.md`](../docs/deploy.md)。域名和运营者信息保持待配置状态，不能把示例值视为真实上线信息。

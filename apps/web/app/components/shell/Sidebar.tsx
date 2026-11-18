@@ -1,26 +1,15 @@
-import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { IntentLink } from "../ui/IntentLink";
 import { useContainedScroll } from "../ui/Page";
 import { SITE } from "@aihot/site";
 import { RingMark, Wordmark } from "@aihot/site/brand/Logo.tsx";
-import { useChangelogSeen } from "../../lib/local-state";
 import { activeSidebarItem, rail, railIsActive, sidebar, type NavItem } from "./nav";
 import { useScreen } from "./screens";
 import { ThemeSwitch } from "./ThemeSwitch";
 import { Filings } from "./Filings";
 import { IconGithub } from "../icons";
 
-/** True while the changelog has an entry newer than the one this reader last opened. */
-export function useChangelogDot(latestVersion: string | null): boolean {
-  const seen = useChangelogSeen();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted || !latestVersion) return false;
-  return !seen || seen < latestVersion;
-}
-
-function SideLink({ item, dot, active }: { item: NavItem; dot: boolean; active: boolean }) {
+function SideLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.icon;
   return (
     <IntentLink
@@ -34,7 +23,6 @@ function SideLink({ item, dot, active }: { item: NavItem; dot: boolean; active: 
         <Icon size={17} />
       </span>
       <span className="min-w-0 truncate">{item.label}</span>
-      {dot && item.changelog && <span className="ml-auto size-1.5 shrink-0 rounded-full bg-hot" aria-label="有新的更新" />}
     </IntentLink>
   );
 }
@@ -44,7 +32,7 @@ function SideLink({ item, dot, active }: { item: NavItem; dot: boolean; active: 
  * page too little room beside the full sidebar, so the phone's tabs stand down the left side instead and
  * the rest of the sidebar sits under 我的, as on phones.
  */
-function Rail({ dot }: { dot: boolean }) {
+function Rail() {
   const { pathname } = useLocation();
   const { tab, home } = useScreen();
   const [railRef, railOverscroll] = useContainedScroll<HTMLElement>();
@@ -70,7 +58,6 @@ function Rail({ dot }: { dot: boolean }) {
                 <Icon size={20} />
               </span>
               <span className="max-w-full truncate">{t.label}</span>
-              {dot && t.changelog && <span className="absolute right-2 top-2 size-1.5 rounded-full bg-hot" aria-label="有新的更新" />}
             </IntentLink>
           );
         })}
@@ -79,8 +66,7 @@ function Rail({ dot }: { dot: boolean }) {
   );
 }
 
-export function Sidebar({ changelogVersion }: { changelogVersion: string | null }) {
-  const dot = useChangelogDot(changelogVersion);
+export function Sidebar() {
   const { pathname } = useLocation();
   const [columnRef, columnOverscroll] = useContainedScroll<HTMLElement>();
   const [navRef, navOverscroll] = useContainedScroll<HTMLElement>();
@@ -88,7 +74,7 @@ export function Sidebar({ changelogVersion }: { changelogVersion: string | null 
   // only a few rows, so the whole column scrolls instead.
   return (
     <>
-      <Rail dot={dot} />
+      <Rail />
       <aside ref={columnRef} className={`scrollbar-thin sticky top-0 hidden h-dvh w-[180px] shrink-0 flex-col border-r border-line bg-sidebar px-3 pb-[max(14px,env(safe-area-inset-bottom))] pt-6 wide:flex short:overflow-y-auto ${columnOverscroll}`}>
         <Link to="/" className="mb-4 flex h-[50px] shrink-0 items-center px-1 text-ink" aria-label={`${SITE.name} 首页`}>
           <Wordmark size={26} />
@@ -102,7 +88,7 @@ export function Sidebar({ changelogVersion }: { changelogVersion: string | null 
                 <div className="px-2.5 pb-1 pt-3.5 text-[11px] text-ink-4">{section.title}</div>
                 <div className="flex flex-col gap-1">
                   {section.items.map((item) => (
-                    <SideLink key={item.to} item={item} dot={dot} active={item.to === lit?.to} />
+                    <SideLink key={item.to} item={item} active={item.to === lit?.to} />
                   ))}
                 </div>
               </div>

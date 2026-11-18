@@ -62,7 +62,11 @@ MCP 默认接受 `SITE_URL` 的主机以及 `localhost`、`127.0.0.1`、`[::1]`�
 
 ### 更新
 
-**2026 年 10 月 31 日的引擎同步**有三个数据库迁移（`0090`–`0092`），照下面的命令更新时 setup 会跑它们：信源多一列可选的类别 `selection_class`，反馈多了 `kind`（类型）和 `idea`（归入的建议）两列，都可以为空，旧数据不用改。没有必填的新环境变量。要注意的变化：
+主题目录、详情页及其站内接口已移除。升级无需新增数据库迁移。自定义部署若配置了主题页面的缓存，可在升级后清除旧缓存；搜索引擎可在下次抓取时识别旧地址已下线。
+
+此前精简移除了反馈、站内更新日志和 GitHub 周榜。先停止旧版 API 和 worker，再执行迁移。迁移会删除原反馈、封禁和提交状态三张表。有历史反馈的部署，升级前应备份数据库及原反馈截图目录。重新启动 worker 后，已停用的定时任务由现有调度器清理。旧版周榜快照是派生数据，可从 `settings` 删除键 `module.github-ranking.snapshot`。
+
+**2026 年 10 月 31 日的引擎同步**有三个数据库迁移（`0090`–`0092`），照下面的命令更新时 setup 会跑它们：信源增加一列可选的类别 `selection_class`，旧数据不用改。没有必填的新环境变量。要注意的变化：
 
 - **`industry/selection.ts` 多了 `classes` 和 `browseFloor`**，见 [精选与校准](selection.md#门槛industryselectionts)；自己改过这个文件的，合并时补上这两项，不补通不过类型检查。
   - `classes`：信源类别和它的门槛下限。后台“信源”页可以给官方信源选一个类别，门槛抬到不低于类别的数，只抬不降；不选类别的信源和原来一样。
@@ -74,7 +78,6 @@ MCP 默认接受 `SITE_URL` 的主机以及 `localhost`、`127.0.0.1`、`[::1]`�
 - **模型服务拒绝调用后的暂停**：拒绝之前已经发出的请求后来成功了，不再解除暂停（它可能用掉了最后的额度），只有拒绝之后发出的请求成功才解除。拒绝时也不再顺手删掉其他模型一天前已经过期的暂停记录：两个模型同时被拒会互相等对方的行锁，死锁后丢掉那次拒绝；过期的暂停本就不再生效，留在 `settings` 里，等那个模型下一次调用成功时删掉。
 - **图片**：网页上的图片先给 AVIF（`<picture>`，不支持的浏览器照旧用原来的格式）。AVIF 版本由 worker 在后台按需生成，比原来的格式小一成以上才保留，生成好之前先返回原来的格式；图片缓存会多占一些空间。源站拒绝或已删除（401、403、404、410）的图片，失败结果缓存 6 小时，不再每分钟回源。
 - **备份**：每个文件只上传一次，放在一个前缀下（见下方 [备份](#备份)）；原来每天都传一份到 `daily/`、周日和每月 1 日再各多传一份。按前缀设过过期规则的，核对一下。没有附件时只传 `.dump`，不再生成空的文件包。
-- **反馈后台**：反馈可以标类型（BUG、建议、提问、其他）；建议可以归入一个建议名，同一个需求用同一个名字，“建议池”按提出人数排序。
 
 新增选填的 `PRIVATE_FEED_HOSTS`：信源订阅或列表地址用自建在内网的服务（比如 RSSHub）时，把它的主机名写进去，不必再打开整站的 `ALLOW_PRIVATE_NETWORK_FETCH`，用法见 [信源](sources.md)。不设置时行为不变；无需数据库迁移。
 
@@ -113,7 +116,7 @@ docker compose run --rm setup && docker compose up -d
 
 #### 搜索结果里的标题（2026 年 11 月 8 日）
 
-没有迁移，没有新的环境变量。`site/site.ts` 新增必填的 `SEO_TITLES`：热点榜、全部动态、Agent 接入页、关于页、日报周报月报的最新一期和主题页在搜索结果里的标题，读者会搜的词在前，页面自动在最后接上“ · 站名”；首页仍用 `SITE.homeTitle`。自己维护 `site/site.ts` 的站，合并时把模板里的这一段复制过去，再换成你行业的说法；不加的话构建会报找不到 `SEO_TITLES`。
+没有迁移，没有新的环境变量。`site/site.ts` 新增必填的 `SEO_TITLES`：热点榜、全部动态、Agent 接入页、关于页、日报周报月报的最新一期在搜索结果里的标题，读者会搜的词在前，页面自动在最后接上“ · 站名”；首页仍用 `SITE.homeTitle`。自己维护 `site/site.ts` 的站，合并时把模板里的这一段复制过去，再换成你行业的说法；不加的话构建会报找不到 `SEO_TITLES`。
 
 #### 钉钉内容推送（2026 年 11 月 6 日）
 
@@ -127,7 +130,7 @@ docker compose run --rm setup && docker compose up -d
 
 #### 导航里可以不放某些入口
 
-没有迁移，没有新环境变量。`site/site.ts` 多了 `NAV.hidden`（目前只支持热点榜 `"/hot"` 和主题 `"/topics"`，见 [把它改成你的行业](customize.md)）；框架从 `@aihot/site` 读它，**自己维护 `site/site.ts` 的站，合并时照模板加上 `NAV`**，不加通不过类型检查。模板里是空的，导航和原来一样；隐藏入口不会关闭页面或公开接口。
+没有迁移，没有新环境变量。`site/site.ts` 多了 `NAV.hidden`（目前只支持热点榜 `"/hot"`，见 [把它改成你的行业](customize.md)）；框架从 `@aihot/site` 读它，**自己维护 `site/site.ts` 的站，合并时照模板加上 `NAV`**，不加通不过类型检查。模板里是空的，导航和原来一样；隐藏入口不会关闭页面或公开接口。
 
 #### 原帖展示与引擎同步（2026 年 10 月 6 日）
 
@@ -161,7 +164,6 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
   - `REPORTS.descriptions`、`entry`、`metricUnits`、`shareUnit`：报告页面的描述和版面上的说法。
   - `ABOUT`、`CARDS` 里提到出刊时间和推荐理由的文案改成引用上面几项。
   - `DEPLOYMENT.directImageHosts` 改名为 `directFetchHosts`，采集和图片共用这份直连名单。
-  - `SITE.feedbackLead`、`SITE.feedbackEmailHint`：反馈页标题下的一句话和邮箱框提示，原来写死在代码里。
   - `SITE.psb`：可选的公安备案号，未办理或不适用时填 `null`。
   - `ABOUT.lead` 里 `{sources}` 两边不再写空格，页面会自动加。
 - `site/models.ts`：评分调用参数现在由具名预设的 `scoreCall` 配置；保留 `glm-5.3-flash-selection` 时同步示例中的温度、输出额度和超时。已有自定义模型没写这一项时沿用引擎默认值。
@@ -205,7 +207,7 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
 
 公开接口没有变化，版本仍是 4.0.0。
 
-- **站点自己的文件从 `industry/` 搬到了 `site/`**：`site.ts`、`models.ts`、`brand/`、`pages/`、`public/`、`changelog.json`。`industry/` 只留行业知识：`taxonomy.ts`、`topics.json`、`sources.json`、`prompts/`、`selection.ts`。自己改过这些文件的，合并时把改动挪到 `site/` 下的同名文件。
+- **站点自己的文件从 `industry/` 搬到了 `site/`**，包括 `site.ts`、`models.ts`、`brand/`、`pages/`、`public/`。`industry/` 只留行业知识：`taxonomy.ts`、`sources.json`、`prompts/`、`selection.ts`。自己改过这些文件的，合并时把改动挪到 `site/` 下的同名文件。
 - **`site.ts` 多了几项**，都可以不填：`SITE.github`、`SITE.llmsIntro`、`SITE.rootIcons`，`POLICY.terms.license`、`POLICY.terms.headers`，`ABOUT.termsAnchor`（二维码卡片可以写 `alias`），以及 `ACCESS`、`ADMIN`、`DEPLOYMENT`、`FEED_COPY`、`PUBLIC_CATEGORIES`，说明见 [把它改成你的行业](customize.md)。`PUBLIC_CATEGORIES` 取代了 4.0.0 时的 `publicAs`：原来在类别上写 `publicAs: "tip"` 的，改在 `PUBLIC_CATEGORIES.merge` 里写（键是这个类别的 key，值是 `"tip"`）。
 - **`DEPLOYMENT.requiredSecrets`** 是生产 API 启动时额外检查的凭据清单，默认空；基本会话、图片签名和管理员登录校验仍然生效。只有你的部署要求某个可选集成必须配置时才填写。
 - **只属于你这个站的功能可以做成模块**：放进 `modules/<名字>/`，在 `site/modules/` 的清单里启用，见 [架构](architecture.md) 的“模块”。框架本身不带模块。
@@ -215,13 +217,13 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
 
 #### 升级到公开接口 4.0.0（2026 年 10 月 3 日）
 
-- **模型榜、Codex 重置监控和主题页的大事记不再是框架的一部分**，只留在 AIHOT 上。页面（`/leaderboard`、`/codex-reset`）、接口（`/api/v1/codex-resets`、`/api/v1/codex-resets/recent`、`/api/v1/agent/codex-resets`）和 MCP 工具 `<前缀>_get_codex_resets` 都去掉了，MCP 和 `/openapi-v1.json` 的版本号升到 4.0.0。迁移 `0053` 删掉它们的表（`lb_*`、`monitor_*`、`fx_rates`）和设置，定时任务及其执行队列在 worker 启动时自动撤掉，后台运行记录继续保留；要留这些数据的，升级前先备份。公司主题页的标志改成公司名的首字母。
+- **模型榜和 Codex 重置监控不再是框架的一部分**，只留在 AIHOT 上。页面（`/leaderboard`、`/codex-reset`）、接口（`/api/v1/codex-resets`、`/api/v1/codex-resets/recent`、`/api/v1/agent/codex-resets`）和 MCP 工具 `<前缀>_get_codex_resets` 都去掉了，MCP 和 `/openapi-v1.json` 的版本号升到 4.0.0。迁移 `0053` 删掉它们的表（`lb_*`、`monitor_*`、`fx_rates`）和设置，定时任务及其执行队列在 worker 启动时自动撤掉，后台运行记录继续保留；要留这些数据的，升级前先备份。
 - **行业包有几处变化**，自己改过 `industry/` 的站，合并时对照新文件补上：
-  - `site.ts` 多了 `topicsTitle`、`feedbackExample`、`keywords`、`since`、`interfaceVersion`、`POLICY`（使用规则和隐私说明两页的名字与简介、X 帖子算不算全文）、`ABOUT.description`、`ABOUT.sourcesFallback`、`AGENT`、`REPORTS`、`ALERTS`、`SOURCE_DEFAULTS`、`COMMUNITY_FEEDS`、`CARDS`；作者块的两张二维码卡片加了 `kind`，`ABOUT.copyright` 改成反馈页链接前后的两段。
+  - `site.ts` 多了 `keywords`、`since`、`interfaceVersion`、`POLICY`（使用规则和隐私说明两页的名字与简介、X 帖子算不算全文）、`ABOUT.description`、`ABOUT.sourcesFallback`、`AGENT`、`REPORTS`、`ALERTS`、`SOURCE_DEFAULTS`、`COMMUNITY_FEEDS`、`CARDS`，作者块的两张二维码卡片加了 `kind`。
   - 新增 `models.ts`：具名的模型和每一步默认用哪个，原来写在代码里。
   - 网页左上角的标志从 `apps/web/app/components/Logo.tsx` 搬到 `industry/brand/Logo.tsx`（后来搬到 `site/` 下，见上方）。
   - 新增 `public/`：`robots.txt`、`manifest.webmanifest` 原来在代码里生成，OpenAPI 说明原来在 `reference/`，现在都是这里的文件。原来填了 `contactEmail` 就会生成的 `/.well-known/security.txt`，现在要自己放一份 `public/.well-known/security.txt`（后来搬到 `site/` 下，见上方）。
-  - 删掉了 `features.ts`、`chronicle.ts` 和 `chronicles/`；`topics.json` 里的 `orgNames`、`leaderboardProvider`、`chronicleTerms` 不再使用，可以删掉。
+  - 删掉了 `features.ts`、`chronicle.ts` 和 `chronicles/`。
   - `taxonomy.ts` 的类别可以写 `feedLabel`（分类 RSS 标题里的名字，示例站用“AI 模型”这样的说法）；`ENTITIES` 加了几家公司。当时类别上还可以写 `publicAs`，让它在公开接口里并进另一类；这个字段后来删掉了，改成 `site/site.ts` 的 `PUBLIC_CATEGORIES.merge`（见上方），再写 `publicAs` 通不过类型检查。
 - **推送接口的限流可以设置**：`/api/ingest/items` 每个客户端每分钟最多推几次由 `INGEST_RATE_LIMIT` 决定，`docker compose` 默认 10，和以前一样；不用 Docker 时默认不限，前面没有代理限流的话在 `.env` 里设上。
 - **不再使用的环境变量**：`ARTIFICIAL_ANALYSIS_API_KEY`、`MONITOR_MODEL`，可以从 `.env` 删掉。
@@ -234,7 +236,7 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
 - **精选要等去重确认**：分数够了的资料，要等归组确认它不是精选里已有新闻的重复、带来了新信息，才进精选；确认之前只在“全部动态”。归组用的模型回答不合格式时会停在那里，后台“运行”页能看到。
 - **一手只看分级**：`T1` 就是一手，`first_party` 不再单独设置；以前单独标成一手的 `T1_5`、`T2` 信源不再算一手，要算就改成 `T1`。
 - **行业包多了几项**：`taxonomy.ts` 新增 `RELEASE`、`PLAIN_TERMS`，评论类的类别标 `commentary: true`，`ENTITIES` 可以写 `otherNames`，`CATEGORY_BY_ITEM_TYPE` 不再使用。已经换成别的行业的站，合并时对照 [把它改成你的行业](customize.md) 补上。
-- **主题只读 `industry/topics.json`**：迁移会删掉数据库里的 `topics` 表。只改过数据库、没改文件的主题，升级前先写进文件。公司主题只看 `entityId`，`related` 不再使用。
+- **旧版主题表**由迁移 `0045` 删除；需要留档的部署请先备份数据库。
 - **日报不再调用模型**：日报按规则编排，周报月报从日报汇编，模型只写总述和栏目导读；已经出过的各期不重写。
 - **提示词有改动**：`industry/prompts/` 里的 `structure.md`、`group-*.md`、`story-digest.md`、`report-period.md` 换成了新的写法，`report-daily-lead.md` 删掉了，新加了 `report-period-sections.md`。改过这些提示词的，对照着把自己的改动搬过去。
 - **删掉的脚本**：`scripts/delete-sources.ts`、`scripts/regroup-events.ts`、`scripts/enqueue-analysis.ts`。不要的信源在后台暂停；单篇的重新评估、重新归组在后台“内容诊断”里打开这一篇操作。
@@ -246,11 +248,11 @@ MCP 的 `subscriptions/listen` 现在立即返回 HTTP 404 和 JSON-RPC `-32601 
 
 在 `.env` 里配置 `DB_BACKUP_STORE_*`（任何 S3 兼容的对象存储），每天 04:10 自动备份到那里。`DB_BACKUP_STORE_SECRET_ID`、`DB_BACKUP_STORE_SECRET_KEY`、`DB_BACKUP_STORE_BUCKET`、`DB_BACKUP_STORE_REGION` 四项都要填；不填 `DB_BACKUP_STORE_DOMAIN` 时按腾讯云 COS 拼地址（`<桶名>.cos.<地域>.myqcloud.com`），用其他 S3 兼容存储时，把这个存储桶的访问域名（含桶名，例如 AWS S3 的 `<桶名>.s3.<地域>.amazonaws.com`）填进 `DB_BACKUP_STORE_DOMAIN`。
 
-一次完整备份包含同一时间戳的数据库 `.dump` 和文件包 `.tar.gz`，文件名取自数据库名：Docker 里数据库叫 `aihot`，所以是 `aihot-<时间>.dump` 和 `aihot-files-<时间>.tar.gz`。文件包保留 `uploads/` 以及仍存本地的 `feedback-screenshots/`，不包含图片缓存或本地备份目录；这些目录里没有文件时只有 `.dump`。已经转发到飞书的图片只保留数据库中的外部引用，文件包不保存飞书上的图片。
+一次完整备份包含同一时间戳的数据库 `.dump` 和 `uploads/` 文件包 `.tar.gz`。Docker 默认数据库名为 `aihot`，对应文件名为 `aihot-<时间>.dump` 和 `aihot-files-<时间>.tar.gz`。没有上传文件时只生成 `.dump`。
 
 每个文件只上传一次，放在一个前缀下：每月 1 日放 `monthly/`，周日放 `weekly/`，其他日子放 `daily/`。可以在对象存储里按前缀设不同的过期时间。
 
-恢复时同时取回这一对文件（只有 `.dump` 的就只恢复数据库）：使用与数据库版本兼容的 `pg_restore` 将 `.dump` 恢复到空数据库，再把文件包解压到数据目录根目录（Docker 中为 `/data`，非 Docker 使用 `AIHOT_DATA_DIR`，默认 `.data`），保留包内的子目录结构，并确保运行进程可读取这些文件。只恢复数据库不能找回仍由 `local:` 引用的反馈截图；旧备份中没有包含的文件也无法凭数据库引用恢复。
+恢复时，用与数据库版本兼容的 `pg_restore` 将 `.dump` 恢复到空数据库。如果有文件包，再将其解压到数据目录根目录（Docker 中为 `/data`，非 Docker 使用 `AIHOT_DATA_DIR`，默认 `.data`），保留包内的子目录结构，并确保运行进程可读取这些文件。
 
 下面的手动导出只包含数据库，不包含上述附件目录：
 

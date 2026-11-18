@@ -21,6 +21,48 @@ import { noiseFiltered } from "@aihot/backend/sources/filters";
 
 const source = (config: Record<string, unknown>) => ({ id: "test-list", config }) as never;
 
+test("JCMS lists read only XML records and retain source URL restrictions", () => {
+  const url = "https://news.example.gov.cn/col/col42/index.html";
+  const config = {
+    url, parseMode: "html", adapter: "jcms_records", itemSelector: "li",
+    allowUrlPrefixes: ["https://news.example.gov.cn/art/"], publishedAtSelector: "time", publishedAtUtcOffset: "+08:00",
+  };
+  const html = `
+    <li><a href="/art/navigation.html">站内导航入口</a></li>
+    <script type="text/xml"><datastore>
+      <nextgroup><![CDATA[<li><a href="/art/next.html">下一页</a></li>]]></nextgroup>
+      <recordset>
+        <record><![CDATA[<li><a href="/art/first.html">原创微短剧产业动态</a><time>2026-11-18</time></li>]]></record>
+        <record><![CDATA[<li><a href="https://elsewhere.example/art/other.html">外站文章</a></li>]]></record>
+        <record><![CDATA[<li><a href="/art/first.html">重复文章</a></li>]]></record>
+      </recordset>
+    </datastore></script>`;
+  assert.deepEqual(unsupportedConfig("web_list", config), []);
+  assert.deepEqual(fromHtml(html, url, source(config)).map(({ url, title, publicationTime }) => [url, title, publicationTime]), [
+    ["https://news.example.gov.cn/art/first.html", "原创微短剧产业动态", "2026-11-18"],
+  ]);
+});
+
+test("inline change entries keep their own anchors, dates and sanitized bodies", () => {
+  const url = "https://example.org/changelog/";
+  const config = {
+    url, preserveUrlFragment: true, itemSelector: "details", titleSelector: "summary span",
+    publishedAtSelector: "time", publishedAtUtcOffset: "+08:00", inlineBodySelector: ".body",
+  };
+  const item = (id: string, date: string, body: string) => `<details id="${id}">
+    <summary><span>短剧制作更新</span><time>${date}</time></summary><div class="body">${body}</div></details>`;
+  const html = item("release-a", "2026-11-16", "<p>分镜工具更新</p><script>alert(1)</script>")
+    + item("release-b", "2026-11-17", "<p>竖屏字幕更新</p>")
+    + item("release-a", "2026-11-16", "<p>重复的条目</p>")
+    + item("release-c", "未知日期", "<p>没有发布日期</p>");
+  assert.deepEqual(unsupportedConfig("web_list", config), []);
+  assert.deepEqual(unsupportedConfig("web_list", { ...config, preserveUrlFragment: false }), ["inlineBodySelector"]);
+  assert.deepEqual(fromHtml(html, url, source(config)).map(({ url, identityKey, publicationTime, bodyHtml }) => [url, identityKey, publicationTime, bodyHtml]), [
+    [`${url}#release-a`, `url:${url}#release-a`, "2026-11-16", "<p>分镜工具更新</p>"],
+    [`${url}#release-b`, `url:${url}#release-b`, "2026-11-17", "<p>竖屏字幕更新</p>"],
+  ]);
+});
+
 const pages: Record<string, () => string> = {
   // A news site's feed: a teaser that ends in "Read the full story", next to a post whose feed carries it whole.
   "/teaser.xml": () =>
@@ -45,6 +87,9 @@ const pages: Record<string, () => string> = {
   "/json5-news": () => "var newsData = [/* bracket ] and quotes ' */ { title: '微短剧行业报告', url: 'https://example.org/a', }, // ]\n {title:'短剧合作动态',url:'https://example.org/b'}]; globalThis.newsDataExecuted = true;",
   "/not-data-news": () => 'var newsData = [{ title: (() => { globalThis.newsDataExecuted = true; return "short drama"; })(), url: "https://example.org/a" }];',
   "/paperindex.htm": () => '<META HTTP-EQUIV="REFRESH" CONTENT="0; URL=html/2026-11/13/node_1.htm?v=1">',
+  "/epaper/": () => '<script>window.parent.location.href="2026/11/18/page_list_20261118.html"</script>',
+  "/epaper/2026/11/18/page_list_20261118.html": () => '<a href="article_list_20261118.html">按文章阅读</a><area href="article_detail_1_20261118A031.html">',
+  "/epaper/2026/11/18/article_list_20261118.html": () => '<a href="article_detail_1_20261118A031.html">微短剧行业观察</a>',
   "/html/2026-11/13/node_1.htm?v=1": () => '<a href="content_123.htm">短剧产业观察</a>',
   "/paper-loop": () => '<meta http-equiv="refresh" content="0; url=/paper-loop">',
   "/paper-external": () => '<meta http-equiv="refresh" content="0; url=https://example.com/paper">',
@@ -329,6 +374,34 @@ test("public embedded article bodies match the publisher and requested identity 
   assert.equal(read(cnstock, 'https://example.org/commonDetail/806259'), null);
 });
 
+test("Tencent Cloud restores the matching article's public Markdown and original publication time", () => {
+  const prose = '制作团队把角色造型、字幕、配音和镜头拆成独立的制作阶段，逐集验证结果。'.repeat(14);
+  const payload = (articleId: number, contentType = 'markdown') => ({
+    props: { query: { articleId: '2775390' }, pageProps: { fallback: {
+      '#url:"/api/article/detail",params:#articleId:2775390,,': {
+        publishTime: 1793724683,
+        editTime: 1793940000,
+        articleInfo: { articleId, contentType, content: `## 角色和分镜\n\n${prose}\n\n<script>globalThis.embeddedArticleExecuted = true;</script>` },
+        articleData: { articleId: 2775390 },
+      },
+    } } },
+  });
+  const page = (data: ReturnType<typeof payload>, body = '') => `<html><head><title>短剧创作工程</title></head><body><h1>短剧创作工程</h1><div class="mod-content__markdown">${body}</div><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(data).replaceAll('<', '\\u003c')}</script></body></html>`;
+  const url = 'https://developer.cloud.tencent.com/article/2775390';
+  const read = (html: string, at = url) => readableDocument(contentDocument(html), at);
+  const body = read(page(payload(2775390)));
+  assert.ok(body && body.text.includes(prose));
+  assert.match(body.html, /<h2>角色和分镜<\/h2>/);
+  assert.equal(body.publishedAt?.getTime(), 1793724683000);
+  assert.ok(!body.html.includes('embeddedArticleExecuted'));
+  assert.equal(read(page(payload(2775391))), null);
+  assert.equal(read(page(payload(2775390, 'rich'))), null);
+  assert.equal(read(page(payload(2775390)), 'https://example.org/article/2775390'), null);
+  const rendered = read(page(payload(2775390), `<p>${'官方页面已经渲染完整文章。'.repeat(25)}</p>`));
+  assert.ok(rendered && rendered.text.includes('官方页面已经渲染完整文章。'));
+  assert.ok(!rendered.text.includes(prose));
+});
+
 test("a public JavaScript news array is parsed as JSON5 data without executing scripts", async () => {
   const cfg = { mode: 'html_window_var', windowVar: 'newsData', titlePaths: ['title'], urlTemplate: '{raw:url}' };
   const items = await fetchJsonList(source({ ...cfg, url: `${site}/json5-news` }));
@@ -364,6 +437,13 @@ test("an electronic newspaper's permanent meta refresh resolves same-origin issu
   for (const path of ["/paper-loop", "/paper-external"]) {
     await assert.rejects(fetchWebList(source({ url: site + path })), /same-origin limit/);
   }
+});
+
+test("an electronic newspaper's static issue redirect opens its linked article index", async () => {
+  const items = await fetchWebList(source({ url: `${site}/epaper/` }));
+  assert.deepEqual(items.map(({ title, url }) => [title, url]), [
+    ["微短剧行业观察", `${site}/epaper/2026/11/18/article_detail_1_20261118A031.html`],
+  ]);
 });
 
 test("LMTW reads the current public listing through its fresh anonymous session", async () => {

@@ -12,7 +12,6 @@ import { eventPageCondition, exportTranslation, isChineseBody, ITEM_COLUMNS, ITE
 import { evidenceCondition, listedCondition } from "./scope.ts";
 import { itemUrl, siteUrl } from "./links.ts";
 import { hasItemPage, publicSourceName } from "./rules.ts";
-import { tagTopics, topicLinks, topicMembership } from "./topics.ts";
 import { firstDaily } from "./reports.ts";
 import { mentionsIn } from "./mentions.ts";
 
@@ -25,7 +24,6 @@ interface DetailRow extends ItemRow {
   cover: Cover | null;
   tr_html: string | null;
   tr_complete: boolean | null;
-  topics: string[];
   thin: boolean;
   /** Its event page stands for it in search (eventPageCondition). */
   event_page: boolean;
@@ -53,7 +51,7 @@ async function loadRow(id: string, now = new Date()): Promise<DetailRow | null> 
   const [row] = await sql<DetailRow[]>`
     SELECT ${ITEM_COLUMNS}, CASE WHEN p.body_mode = 'full' THEN a.x_article->>'html' END AS x_article_html,
       a.body_html, a.body_text, a.body_status, a.cover, tr.body_html AS tr_html, tr.complete AS tr_complete,
-      ${topicMembership()} AS topics, ${thinPageCondition()} AS thin, ${eventPageCondition(now)} AS event_page
+      ${thinPageCondition()} AS thin, ${eventPageCondition(now)} AS event_page
     ${ITEM_FROM}
     WHERE p.article_id = ${id}`;
   return row ?? null;
@@ -107,8 +105,6 @@ export async function loadItemDetail(id: string, language: "zh" | "original" = "
       body: null,
       outline: [],
       relatedStories: [],
-      topics: [],
-      tagTopics: {},
       daily: null,
       indexable: false,
       googleNoindex: false,
@@ -193,8 +189,6 @@ export async function loadItemDetail(id: string, language: "zh" | "original" = "
     body: reading.body,
     outline: reading.outline,
     relatedStories: related,
-    topics: topicLinks(row.topics),
-    tagTopics: tagTopics(summary.tags),
     daily: await firstDaily(id),
     indexable: row.indexable,
     googleNoindex: row.indexable && (row.thin || row.event_page),

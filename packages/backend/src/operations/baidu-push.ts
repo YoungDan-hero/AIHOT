@@ -19,11 +19,10 @@ type Entry = Awaited<ReturnType<typeof loadDiscoveryEntries>>[number];
 
 // A new site's quota is a handful of URLs a day: a report issue or a story stands for a whole day's or a
 // whole event's coverage, so they go before single articles; within each, newer first. A new model-board
-// page (a model, a board's prices) or topic answers searches for months and comes a few a week, so it goes
-// right after the report instead of waiting behind each day's news for good. Stories carry no date in the
-// full inventory, which lists them newest first; the sort is stable and keeps that order.
-const RANK: [RegExp, number][] = [[/^\/(daily|weekly|monthly)\//, 0], [/^\/leaderboard\//, 1], [/^\/topics\//, 2], [/^\/story\//, 3], [/^\/items\//, 4]];
-const rank = (loc: string) => RANK.find(([pattern]) => pattern.test(loc))?.[1] ?? 5;
+// page answers searches for months and goes right after reports. Stories have no date in the full inventory,
+// which already lists them newest first; the sort is stable and keeps that order.
+const RANK: [RegExp, number][] = [[/^\/(daily|weekly|monthly)\//, 0], [/^\/leaderboard\//, 1], [/^\/story\//, 2], [/^\/items\//, 3]];
+const rank = (loc: string) => RANK.find(([pattern]) => pattern.test(loc))?.[1] ?? 4;
 const time = (e: Entry) => e.newsAt?.getTime() ?? e.lastmod?.getTime() ?? 0;
 
 export async function submitBaiduPush(now = new Date()) {

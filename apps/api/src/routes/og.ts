@@ -1,4 +1,4 @@
-// Share images (1200×630 PNG) for pages, items, reports, topics and events. Only public content
+// Share images (1200×630 PNG) for pages, items, reports and events. Only public content
 // gets a card; anything else is a real 404.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { reportDateLabel } from "@aihot/contracts/site";
@@ -6,18 +6,11 @@ import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { beijingDate } from "@aihot/contracts/time";
 import { loadItemOgCard, loadItemShare } from "@aihot/backend/publication/og";
 import { loadReport, type ReportKind } from "@aihot/backend/publication/reports";
-import { findTopic, TOPIC_GROUPS, TOPICS } from "@aihot/backend/publication/topics";
 import { loadStoryDetail, resolveStory } from "@aihot/backend/publication/stories";
 import { ogEtag, renderOg, type OgCard } from "@aihot/backend/media/og";
 import { posterEtag, renderPoster, type Poster } from "@aihot/backend/media/poster";
-import { CARDS, ITEM_COPY, REPORTS, subjectAfter, withSubject } from "@aihot/site";
+import { CARDS, ITEM_COPY, REPORTS, withSubject } from "@aihot/site";
 import { config } from "@aihot/backend/config";
-
-/** The pages' share cards: the site's texts, and the topic count of the topic list. */
-const PAGES: Record<string, OgCard> = {
-  ...CARDS,
-  topics: { kicker: "主题", title: `${TOPICS.length} ${subjectAfter("个长期追踪的", "方向")}`, subtitle: `${TOPIC_GROUPS.map((g) => g.name).join("、")}。` },
-};
 
 /**
  * Article, event and report images carry editable content. A reader may keep a copy for five
@@ -39,11 +32,11 @@ function notFound(reply: FastifyReply) {
 const REPORT_NAMES: Record<ReportKind, string> = { daily: withSubject("日报"), weekly: withSubject("周报"), monthly: withSubject("月报") };
 
 export function registerOg(app: FastifyInstance) {
-  app.get("/og/site.png", (req, reply) => send(req, reply, PAGES.site!, 86400));
+  app.get("/og/site.png", (req, reply) => send(req, reply, CARDS.site!, 86400));
 
   app.get("/og/pages/:file", async (req, reply) => {
     const name = (req.params as { file: string }).file.replace(/\.png$/, "");
-    const card = Object.hasOwn(PAGES, name) ? PAGES[name] : undefined;
+    const card = Object.hasOwn(CARDS, name) ? CARDS[name] : undefined;
     if (!card || !(req.params as { file: string }).file.endsWith(".png")) return notFound(reply);
     return send(req, reply, card, 86400);
   });
@@ -90,13 +83,6 @@ export function registerOg(app: FastifyInstance) {
       // A quiet day's issue (REPORTS.quiet) has nothing to count.
       meta: count > 0 ? `${count} ${REPORTS.shareUnit} · 约 ${r.readingMinutes} 分钟读完` : null,
     }, 3600, CONTENT_IMAGE_CACHE);
-  });
-
-  app.get("/og/topics/:file", async (req, reply) => {
-    const file = (req.params as { file: string }).file;
-    const t = file.endsWith(".png") ? findTopic(file.slice(0, -4)) : null;
-    if (!t) return notFound(reply);
-    return send(req, reply, { kicker: `主题 · ${TOPIC_GROUPS.find((g) => g.key === t.group)?.name ?? ""}`, title: `${t.name} 最新动态`, subtitle: t.definition }, 86400);
   });
 
   app.get("/og/stories/:file", async (req, reply) => {

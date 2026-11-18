@@ -11,7 +11,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
   rss: [...COLLECTED, "feedUrl", "summaryIsBody", "preserveUrlFragment", "allowCategories", "denyCategories", "publishedAtUtcOffset"],
   web_list: [
     ...COLLECTED, "url", "baseUrl", "parseMode", "adapter", "cacheToleranceSeconds", "linksStartLine", "preserveUrlFragment",
-    "itemSelector", "linkSelector", "linkAttribute", "titleSelector", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset",
+    "itemSelector", "linkSelector", "linkAttribute", "titleSelector", "publishedAtSelector", "publishedAtRegex", "publishedAtUtcOffset", "inlineBodySelector",
   ],
   json_list: [
     ...COLLECTED, "url", "mode", "method", "headers", "bodyJson", "jsonKey", "windowVar", "itemsPath", "itemsObjectValues",
@@ -47,7 +47,7 @@ const preserveRules = (value: unknown) => Array.isArray(value) && value.every((r
 
 const VALUES: Record<string, string[]> = {
   publisherRole: ["organization", "person"],
-  adapter: ["mimo_home", "xinwanr_news", "bianews_news", "lmtw_news", "huanqiu_news"],
+  adapter: ["mimo_home", "xinwanr_news", "bianews_news", "lmtw_news", "huanqiu_news", "jcms_records"],
   parseMode: ["html", "markdown", "docusaurus_changelog", "markdown_changelog", "intercom_changelog"],
 };
 
@@ -74,6 +74,8 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
       || value && (!config.urlTemplate || !config.urlTemplateFallback || !config.publishedAtPath))) out.push(key);
     else if (key === "acceptLanguage" && (typeof value !== "string" || !ACCEPT_LANGUAGE.test(value))) out.push(key);
     else if (key === "linkAttribute" && (typeof value !== "string" || !/^[A-Za-z_:][A-Za-z0-9_.:-]*$/.test(value))) out.push(key);
+    else if (key === "inlineBodySelector" && (typeof value !== "string" || !value.trim() || config.preserveUrlFragment !== true
+      || !config.itemSelector || !config.titleSelector || !config.publishedAtSelector || (config.parseMode ?? "html") !== "html")) out.push(key);
     else if (key === "publisherUrlPrefixes" && (!Array.isArray(value) || !value.every((v) => {
       if (typeof v !== "string") return false;
       try { const u = new URL(v); return /^https?:$/.test(u.protocol) && !u.username && !u.password && !u.search && !u.hash; } catch { return false; }

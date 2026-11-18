@@ -139,10 +139,11 @@ test("an article page's publication metadata is read one way, original publicati
 });
 
 test('all date-only formats retain the source calendar day and use its offset', () => {
-  for (const value of ['2026-10-13', '2026/10/13', 'October 13, 2026', '13 October 2026']) {
+  for (const value of ['2026-10-13', '2026/10/13', '2026 / 10 / 13', 'October 13, 2026', '13 October 2026']) {
     assert.equal(parseLooseDate(value, '-07:00')?.toISOString(), '2026-10-13T07:00:00.000Z', value);
     assert.deepEqual(readPublicationDate(value, '-07:00'), { publishedAt: new Date('2026-10-13T07:00:00Z'), publicationTime: '2026-10-13' });
   }
+  assert.deepEqual(readPublicationDate('2026 / 02 / 30'), { publishedAt: null, publicationTime: null });
 });
 
 test('real midnight keeps its precision; date-only and missing source precision never invent it', () => {

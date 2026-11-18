@@ -504,7 +504,6 @@ test("summary-only detail and sharing keep neutral metadata without a selected v
     assert.equal(item.selected, false);
     for (const field of ["score", "reason", "category", "story", "body", "x"]) assert.equal(item[field], null, field);
     assert.deepEqual(item.tags, []);
-    assert.deepEqual(item.topics, []);
     assert.equal(item.markdownAvailable, false);
   }
   const share = (await loadItemShare(id))!;

@@ -1,10 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useRouteLoaderData } from "react-router";
+import { Link } from "react-router";
 import { POLICY, SITE } from "@aihot/site";
-import type { loader as rootLoader } from "../root";
-import { useChangelogDot } from "../components/shell/Sidebar";
 import { PhoneBar } from "../components/shell/PhoneBar";
-import { inNav } from "../components/shell/nav";
 import type { Screen } from "../components/shell/screens";
 import { edgeTtl } from "../lib/api.server";
 import { webModules } from "../site-modules";
@@ -13,7 +10,7 @@ import { setFontPreference, useFontPreference, useStarred } from "../lib/local-s
 import { Select } from "../components/ui/Controls";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
 import { Filings } from "../components/shell/Filings";
-import { IconBookmark, IconChevronRight, IconGrid, IconHeart, IconMessage, IconMoon, IconPlug, IconSparkles } from "../components/icons";
+import { IconBookmark, IconChevronRight, IconHeart, IconMoon, IconPlug, IconRss } from "../components/icons";
 
 export const handle: Screen = { tab: "me", name: "我的" };
 
@@ -37,7 +34,6 @@ const agentWays = () => [...webModules().flatMap((m) => m.agentWays ?? []), "MCP
 /** The modules' tools first, then the engine's. */
 const tools = (): Row[] => [
   ...webModules().flatMap((m) => m.tools ?? []),
-  ...(inNav("/topics") ? [{ to: "/topics", label: "主题", icon: <IconGrid size={20} /> }] : []),
   { to: "/agent", label: "Agent 接入", icon: <IconPlug size={20} />, detail: agentWays().slice(0, 3).join(" · ") },
 ];
 
@@ -50,15 +46,12 @@ function Group({ title, children }: { title?: string; children: ReactNode }) {
   );
 }
 
-function RowLink({ row, dot = false }: { row: Row; dot?: boolean }) {
+function RowLink({ row }: { row: Row }) {
   return (
     <li>
       <Link viewTransition to={row.to} className="flex min-h-[52px] items-center gap-3 px-4 text-[16px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk">
         <span className="text-ink-3">{row.icon}</span>
-        <span className="flex flex-1 items-center gap-2">
-          {row.label}
-          {dot && <span className="size-[7px] rounded-full bg-hot" aria-label="有新的更新" />}
-        </span>
+        <span className="flex-1">{row.label}</span>
         {row.detail && <span className="text-[14px] font-normal text-ink-4">{row.detail}</span>}
         <IconChevronRight size={16} className="text-ink-4" />
       </Link>
@@ -67,8 +60,6 @@ function RowLink({ row, dot = false }: { row: Row; dot?: boolean }) {
 }
 
 export default function MorePage() {
-  const root = useRouteLoaderData<typeof rootLoader>("root");
-  const changelogDot = useChangelogDot(root?.changelogVersion ?? null);
   const starred = useStarred();
   const font = useFontPreference();
   // The count is this browser's: shown once the page runs here, never in the shared server copy.
@@ -103,9 +94,8 @@ export default function MorePage() {
           ))}
         </Group>
         <Group title="关于">
+          <RowLink row={{ to: "/sources", label: "信源", icon: <IconRss size={20} /> }} />
           <RowLink row={{ to: "/about", label: `关于 ${SITE.name}`, icon: <IconHeart size={20} /> }} />
-          <RowLink row={{ to: "/changelog", label: "更新日志", icon: <IconSparkles size={20} /> }} dot={changelogDot} />
-          <RowLink row={{ to: "/feedback", label: "意见反馈", icon: <IconMessage size={20} /> }} />
         </Group>
       </div>
       <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[12px] leading-[2] text-ink-4">

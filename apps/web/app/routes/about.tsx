@@ -153,17 +153,6 @@ function Maker({ maker, contact }: { maker: NonNullable<typeof ABOUT.maker>; con
           {maker.greeting.map((line) => (
             <p key={line}>{line}</p>
           ))}
-          <p className="text-ink-3">
-            它一直在改，改了什么都写在
-            <Link viewTransition to="/changelog" className="text-accent hover:underline">
-              更新日志
-            </Link>
-            里；有想法、遇到问题，去
-            <Link viewTransition to="/feedback" className="text-accent hover:underline">
-              反馈页
-            </Link>
-            告诉我。
-          </p>
         </div>
       </div>
       {codes.length > 0 && (
@@ -271,11 +260,7 @@ export default function AboutPage() {
       {ABOUT.maker && <Maker maker={ABOUT.maker} contact={contact} />}
 
       <p className="mt-16 well rounded-card px-5 py-4 text-[13px] leading-[1.85] text-ink-3">
-        {ABOUT.copyright[0]}
-        <Link viewTransition to="/feedback" className="text-accent hover:underline">
-          反馈页
-        </Link>
-        {ABOUT.copyright[1]}
+        {ABOUT.copyright}
       </p>
 
       <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-[12.5px] text-ink-4">

@@ -10,8 +10,6 @@ export const KEYS = {
   unreadOnly: "aihot-unread-only",
   theme: "aihot-theme",
   font: "aihot-font",
-  changelogSeen: "aihot-changelog-seen-version",
-  feedbackDraft: "aihot-feedback-draft-v1",
   recentSearches: "aihot-recent-searches",
 } as const;
 
@@ -118,7 +116,6 @@ const subscribeRead = subscribeKey(KEYS.read);
 const subscribeUnreadOnly = subscribeKey(KEYS.unreadOnly);
 const subscribeTheme = subscribeKey(KEYS.theme);
 const subscribeFont = subscribeKey(KEYS.font);
-const subscribeChangelog = subscribeKey(KEYS.changelogSeen);
 const subscribeRecentSearches = subscribeKey(KEYS.recentSearches);
 
 // Snapshot cache so useSyncExternalStore gets stable references between changes.
@@ -339,17 +336,6 @@ export function watchAppearance(onChange: (change: "theme" | "font") => void): (
 /** Inline script run before paint so the first frame already has the reader's appearance. */
 export const APPEARANCE_BOOT_SCRIPT = `(function(){var f='system';try{f=localStorage.getItem('${KEYS.font}')==='browser'?'browser':'system'}catch(e){}document.documentElement.setAttribute('data-font',f);try{var t=localStorage.getItem('${KEYS.theme}');if(t==='light'||t==='dark'){var c=t==='dark'?'${THEME_COLOR.dark}':'${THEME_COLOR.light}';document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.content=c})}else{t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
 
-// changelog red dot
-function getChangelogSeen(): string | null {
-  const v = readRaw(KEYS.changelogSeen);
-  return v && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? v : null;
-}
-
-export function setChangelogSeen(version: string) {
-  writeRaw(KEYS.changelogSeen, version);
-  invalidate(KEYS.changelogSeen);
-}
-
 // recent searches (newest first, at most RECENT_SEARCH_LIMIT; this browser only)
 function getRecentSearches(): string[] {
   return cached(KEYS.recentSearches, () => {
@@ -370,20 +356,6 @@ export function addRecentSearch(query: string) {
 export function clearRecentSearches() {
   writeRaw(KEYS.recentSearches, null);
   invalidate(KEYS.recentSearches);
-}
-
-// the page the reader was on (feedback records where a problem was seen)
-const LAST_PAGE_KEY = "aihot:last-page";
-const NOT_A_PLACE = /^\/(feedback|more)(\/|$)|^\/admin(\/|$)/;
-
-/** Called on every in-site navigation: remembers the latest real page, never feedback, "更多" or the admin. */
-export function rememberPage(path: string) {
-  if (!NOT_A_PLACE.test(path)) writeRaw(LAST_PAGE_KEY, path, "session");
-}
-
-export function lastPage(): string | null {
-  const v = readRaw(LAST_PAGE_KEY, "session");
-  return v && v.startsWith("/") && !v.startsWith("//") ? v : null;
 }
 
 // export / import (version 1)
@@ -512,10 +484,6 @@ export function useThemePreference(): ThemePreference {
 
 export function useFontPreference(): FontPreference {
   return useSyncExternalStore(subscribeFont, getFontPreference, () => null);
-}
-
-export function useChangelogSeen(): string | null {
-  return useSyncExternalStore(subscribeChangelog, getChangelogSeen, () => null);
 }
 
 const NO_SEARCHES: string[] = [];

@@ -1,6 +1,5 @@
 // /api/admin/*: queries are GET, creation POST, edits PATCH, business commands POST.
 // Every route goes through adminHandler (session + CSRF); manual changes are audited in the modules.
-import { readFile } from "node:fs/promises";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { AdminSourceUpdate } from "@aihot/contracts/admin";
 import { actorOf } from "@aihot/backend/admin/auth";
@@ -10,7 +9,6 @@ import { importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@aiho
 import { modelsOverview, switchModel } from "@aihot/backend/admin/models";
 import { contentChain, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@aihot/backend/admin/content";
 import { detachFromFact, mergeStories } from "@aihot/backend/events/corrections";
-import { banFeedbackEmail, banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@aihot/backend/admin/feedback";
 import { requeueFailedArticles, runsOverview } from "@aihot/backend/admin/runs";
 import { resolveDelivery } from "@aihot/backend/notify/deliver";
 import { releaseReceipt } from "@aihot/backend/operations/recover";
@@ -65,31 +63,6 @@ export function registerAdmin(app: FastifyInstance) {
   app.post("/api/admin/stories/merge", adminHandler(async (req, _reply, admin) => {
     const b = body<{ from: number; into: number; reason: string }>(req);
     return mergeStories(Number(b.from), Number(b.into), b.reason, actorOf(admin));
-  }));
-
-  // Feedback
-  app.get("/api/admin/feedback", adminHandler(async (req) => {
-    const f = q(req);
-    return listFeedback({ status: f.status, kind: f.kind, idea: f.idea, q: f.q, page: page(req) });
-  }));
-  app.patch("/api/admin/feedback/:id", adminHandler(async (req, reply, admin) => orNotFound(req, reply, await updateFeedback(Number(param(req, "id")), body(req) as never, actorOf(admin)))));
-  app.post("/api/admin/feedback/:id/erase", adminHandler(async (req, reply, admin) => orNotFound(req, reply, await eraseFeedback(Number(param(req, "id")), String(body(req).reason ?? ""), actorOf(admin)))));
-  app.get("/api/admin/feedback/:id/screenshot", adminHandler(async (req, reply) => {
-    const file = await feedbackScreenshot(Number(param(req, "id")));
-    const data = file ? await readFile(file).catch(() => null) : null;
-    if (!data) return notFound(req, reply);
-    const ext = file!.split(".").pop();
-    return reply.type(ext === "jpeg" || ext === "jpg" ? "image/jpeg" : `image/${ext}`).send(data);
-  }));
-  app.post("/api/admin/feedback-bans", adminHandler(async (req, reply, admin) => {
-    const b = body<{ sourceHash: string; feedbackId?: number; reason: string }>(req);
-    if (b.feedbackId !== undefined) await banFeedbackEmail(b.feedbackId, b.reason, actorOf(admin));
-    else await banSource(b.sourceHash, b.reason, actorOf(admin));
-    return reply.code(204).send();
-  }));
-  app.delete("/api/admin/feedback-bans/:hash", adminHandler(async (req, reply, admin) => {
-    await unbanSource(param(req, "hash"), actorOf(admin));
-    return reply.code(204).send();
   }));
 
   // Runs

@@ -3,9 +3,9 @@
 
 /** 类别的 key 用于网址、RSS 和公开接口；section 同时用于日报栏目。 */
 export const CATEGORIES = [
-  { key: "domestic", tagColor: "indigo", label: "国内动态", feedLabel: "国内短剧", section: "国内动态", guide: "核心动作、适用规则或业务主要面向中国大陆短剧市场的资讯，包括真人短剧、AI漫剧、平台、制作、商业与监管。中文信源报道海外业务仍归海外。" },
-  { key: "overseas", tagColor: "turquoise", label: "海外动态", feedLabel: "海外短剧", section: "海外动态", guide: "核心动作、适用规则或业务主要面向中国大陆以外市场的微短剧、竖屏剧、平台、IP与发行资讯。中国公司出海与当地公司业务使用同一类别；英文信源报道国内事件仍归国内。" },
-  { key: "industry", tagColor: "orange", label: "跨市场观察", feedLabel: "短剧跨市场观察", section: "跨市场观察", guide: "实质比较国内与海外、多个市场同等重要，或无法归属单一市场的短剧行业研究、方法和综合观察。不能因为缺少地名就猜为国内或海外；材料不足时category为null。" },
+  { key: "domestic", tagColor: "indigo", label: "国内动态", feedLabel: "国内短剧", section: "国内动态", guide: "核心动作、适用规则或业务主要面向中国大陆短剧或新媒体市场的资讯，包括平台、制作、发行、创作者运营、商业与监管。中文信源报道海外业务仍归海外。" },
+  { key: "overseas", tagColor: "turquoise", label: "海外动态", feedLabel: "海外短剧", section: "海外动态", guide: "核心动作、适用规则或业务主要面向中国大陆以外市场的短剧或新媒体资讯，包括竖屏剧、内容平台、IP与发行。中国公司出海与当地公司业务使用同一类别。英文信源报道国内事件仍归国内。" },
+  { key: "industry", tagColor: "orange", label: "跨市场观察", feedLabel: "短剧跨市场观察", section: "跨市场观察", guide: "实质比较国内与海外、多个市场同等重要，或无法归属单一市场的短剧或新媒体产业研究、方法和综合观察。材料不足时category为null。" },
 ] as const satisfies ReadonlyArray<{ key: string; tagColor: string; label: string; feedLabel?: string; section: string; guide: string; commentary?: true }>;
 
 /** 跨市场资讯没有统一可比较的发布计数，日报不显示发布数量报头。 */
@@ -44,7 +44,7 @@ export const ENTITIES: Record<string, { name: string; displayTag: string | null;
   "tencent-video": { name: "腾讯视频", displayTag: "腾讯视频", aliases: ["Tencent Video", "WeTV"], orgNames: ["腾讯视频"] },
   youku: { name: "优酷", displayTag: "优酷", aliases: ["Youku"], orgNames: ["优酷"] },
   iqiyi: { name: "爱奇艺", displayTag: "爱奇艺", aliases: ["iQIYI", "IQiyi"], orgNames: ["爱奇艺"] },
-  "crazy-maple": { name: "Crazy Maple Studio / ReelShort", displayTag: "ReelShort", aliases: ["Crazy Maple Studio", "Crazy Maple Studios", "枫叶互动", "ReelShort"], orgNames: ["Crazy Maple Studio", "枫叶互动"], otherNames: ["ReelShort"] },
+  "crazy-maple": { name: "Crazy Maple Studio / ReelShort", displayTag: "ReelShort", aliases: ["Crazy Maple Studio", "Crazy Maple Studios", "枫叶互动", "ReelShort", "ReelShort / Crazy Maple Studio"], orgNames: ["Crazy Maple Studio", "枫叶互动"], otherNames: ["ReelShort"] },
   dramabox: { name: "DramaBox", displayTag: "DramaBox", aliases: ["DramaBox"], orgNames: ["DramaBox"] },
   netshort: { name: "NetShort", displayTag: "NetShort", aliases: ["NetShort"], orgNames: ["NetShort"] },
   shortmax: { name: "ShortMax", displayTag: "ShortMax", aliases: ["ShortMax"], orgNames: ["ShortMax"] },

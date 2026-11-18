@@ -7,31 +7,23 @@ import { siteUrl } from "./links.ts";
 import { sql } from "../db.ts";
 import { serverModules, type LlmsLines } from "../modules.ts";
 import { feedMeta } from "./feeds.ts";
-import { TOPIC_GROUPS, TOPICS, topicPageCounts } from "./topics.ts";
 
-/**
- * Discovery only needs to know whether an entry exists, not count its entire history, and which topics are
- * indexed; and what the site's modules add.
- */
+/** Discovery lists report types with at least one entry and what the site's modules add. */
 export async function loadLlmsAvailability() {
-  const [[row], counts, extra] = await Promise.all([
+  const [[row], extra] = await Promise.all([
     sql<{ hasDailies: boolean; hasWeekly: boolean; hasMonthly: boolean }[]>`
       SELECT EXISTS (SELECT 1 FROM reports WHERE kind = 'daily') AS "hasDailies",
              EXISTS (SELECT 1 FROM reports WHERE kind = 'weekly') AS "hasWeekly",
              EXISTS (SELECT 1 FROM reports WHERE kind = 'monthly') AS "hasMonthly"`,
-    topicPageCounts(new Date()),
     Promise.all(serverModules().map(async (m) => (await m.llms?.()) ?? {})),
   ]);
-  const indexed = new Set(counts.filter((c) => c.indexable).map((c) => c.slug));
   return {
     ...row!,
-    topics: TOPICS.filter((t) => indexed.has(t.slug)).map((t) => ({ slug: t.slug, name: t.name, definition: t.definition })),
     tools: [...MCP_TOOLS.map((t) => t.name), ...serverModules().flatMap((m) => m.agent?.abilities ?? []).map((a) => mcpToolName(a.mcp.tool))],
     modules: {
       api: extra.flatMap((l) => l.api ?? []),
       pace: extra.flatMap((l) => l.pace ?? []),
       pages: extra.flatMap((l) => l.pages ?? []),
-      topics: extra.flatMap((l) => l.topics ?? []),
       access: extra.flatMap((l) => l.access ?? []),
       usage: extra.flatMap((l) => l.usage ?? []),
       guideClients: extra.flatMap((l) => l.guideClients ?? []),
@@ -42,7 +34,6 @@ export async function loadLlmsAvailability() {
 
 export function llmsTxt(opts: {
   hasDailies: boolean; hasWeekly: boolean; hasMonthly: boolean;
-  topics: Array<{ slug: string; name: string; definition: string }>;
   /** Every MCP tool, the engine's and the modules'. */
   tools: string[];
   modules: Required<LlmsLines>;
@@ -53,7 +44,6 @@ export function llmsTxt(opts: {
   const page = (name: string, path: string, covers: string | null) => `- [${name}](${u(path)})${covers ? `: ${covers}` : ""}`;
   // Examples use a real category: the second-to-last (papers in the AI pack).
   const sample = PUBLIC_API_CATEGORY_KEYS.at(-2) ?? PUBLIC_API_CATEGORY_KEYS[0];
-  const field = TOPIC_GROUPS.find((g) => g.key === "field")?.name ?? "方向";
   const lines: string[] = [];
   lines.push(`# ${SITE.name}`, "");
   lines.push(`> ${SITE.description}`, "");
@@ -118,14 +108,7 @@ export function llmsTxt(opts: {
   }
   if (opts.hasWeekly) lines.push(`- [${withSubject("周报")}](${u("/weekly")}): ${REPORTS.descriptions.weekly}（含往期）；也可用 /api/v1/weeklies、给 Agent 的 /api/v1/agent/weekly、MCP 工具 ${T.weekly} 读取，或用 /feed/weekly.xml 订阅`);
   if (opts.hasMonthly) lines.push(`- [${withSubject("月报")}](${u("/monthly")}): ${REPORTS.descriptions.monthly}（含往期）；也可用 /api/v1/monthlies、给 Agent 的 /api/v1/agent/monthly、MCP 工具 ${T.monthly} 读取，或用 /feed/monthly.xml 订阅`);
-  lines.push(`- [主题](${u("/topics")}): 按${TOPIC_GROUPS.map((g) => g.name).join("、")}${subjectAfter("追踪", "最新动态")}${opts.topics.length ? `（${opts.topics.length} 个主题，下一节逐个列出）` : ""}`);
   lines.push(...opts.modules.pages);
-  if (opts.topics.length) {
-    lines.push("", `## 主题：各公司与${field}的最新动态`, "");
-    lines.push(`每个主题页持续更新最新精选${opts.modules.topics.map((clause) => `；${clause}`).join("")}。`);
-    lines.push("");
-    for (const t of opts.topics) lines.push(`- [${t.name}](${u(`/topics/${t.slug}`)}): ${t.definition}`);
-  }
   lines.push("", "## 使用说明", "");
   lines.push(
     "- 内容为第三方原文的聚合摘要与编辑策展，原文版权归各来源所有。" + (POLICY.terms.license?.llms ?? ""),

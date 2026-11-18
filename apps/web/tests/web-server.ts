@@ -27,7 +27,7 @@ export function itemDetail(fields: Partial<SiteItemDetail> & Pick<SiteItemDetail
     ...feedItem({ id: fields.id, title: fields.title }), x: null, originalTitle: null, links: { original: "https://example.org/article" },
     discoveredAt: FIXTURE_AT, story: null, readingMode: "full", author: null,
     body: { zh: "<p>固定正文</p>", original: null, zhKind: "translation", complete: true },
-    outline: [], relatedStories: [], topics: [], tagTopics: {}, daily: null, indexable: true, googleNoindex: false, markdownAvailable: true, group: null, hasTranslation: true, bodyLanguage: "zh", mentions: [],
+    outline: [], relatedStories: [], daily: null, indexable: true, googleNoindex: false, markdownAvailable: true, group: null, hasTranslation: true, bodyLanguage: "zh", mentions: [],
     ...fields,
   };
 }
@@ -44,7 +44,6 @@ export function fakeApi(route: (url: URL, res: ServerResponse, req: IncomingMess
     const body = await route(url, res, req);
     if (res.writableEnded) return;
     if (body !== undefined) return res.end(JSON.stringify(body));
-    if (url.pathname === "/api/site/meta") return res.end(JSON.stringify({ changelogVersion: "fixture" }));
     if (url.pathname === "/api/site/track") { res.statusCode = 204; return res.end(); }
     if (url.pathname === "/api/health") return res.end("{}");
     res.statusCode = 404;

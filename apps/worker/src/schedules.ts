@@ -18,7 +18,6 @@ import { submitIndexNow } from "@aihot/backend/operations/indexnow";
 import { submitBaiduPush } from "@aihot/backend/operations/baidu-push";
 import { checkAlerts, sendDigest } from "@aihot/backend/operations/alerts";
 import { recoverStaleWork } from "@aihot/backend/operations/recover";
-import { forwardPendingFeedback } from "@aihot/backend/operations/feedback";
 import { backupConfigured, runBackup } from "@aihot/backend/operations/backup";
 import { sourceHealthWeekly } from "@aihot/backend/operations/reports";
 
@@ -47,8 +46,6 @@ const ENGINE_SCHEDULES: Scheduled[] = [
   { name: "ops.alerts", cron: "*/10 * * * *", run: () => checkAlerts() },
   // One message with other follow-ups and their actual impact (nothing when there are none).
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },
-  // Feedback that did not reach the internal Feishu chat when it was sent (off with FEISHU_INTERNAL_ENABLED).
-  { name: "feedback.forward", cron: "*/10 * * * *", run: () => forwardPendingFeedback() },
   ...(backupConfigured() ? [{ name: "ops.backup", cron: "10 4 * * *", missed: "once" as const, run: () => runBackup() }] : []),
   { name: "reports.source-health", cron: "0 9 * * 1", missed: "once", run: () => sourceHealthWeekly() },
   ...(collecting

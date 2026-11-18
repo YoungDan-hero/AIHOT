@@ -26,7 +26,6 @@ let failNextPage = false;
 
 const api = fakeApi((url, res) => {
   const p = url.pathname;
-  if (p === "/api/site/topics") return { groups: [], topics: [] };
   if (p === "/api/site/hot") return { computedAt: at, windowHours: 48, entries: [] };
   if (p === "/api/site/timeline") {
     const tag = url.searchParams.get("tag");

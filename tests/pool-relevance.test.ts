@@ -62,6 +62,17 @@ test("company relevance retains tag-only candidates, boosts and unique totals", 
   assert.deepEqual(multi.items.map(item => item.id), [id("company-text")], "only the whole company alias expands the candidates");
 });
 
+test("a company's full name and aliases find subject-tagged reports", async () => {
+  await add("reelshort-tag", "", "", { tags: ["entity:crazy-maple"] });
+  for (const tab of ["time", "relevance"] as const) {
+    for (const name of ["ReelShort / Crazy Maple Studio", "枫叶互动"]) {
+      const result = await loadPool({ ...query(name), tab });
+      assert.deepEqual(result.items.map(item => item.id), [id("reelshort-tag")]);
+      assert.equal(result.total, 1);
+    }
+  }
+});
+
 test("relevance retains combined filters and literal LIKE characters", async () => {
   await add("filtered", "uv", "uv", { channel: "x", category: "industry", tags: [T] });
   await add("wrong-channel", "uv", "uv", { category: "industry", tags: [T] });

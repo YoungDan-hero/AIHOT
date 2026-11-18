@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { IntentLink } from "../components/ui/IntentLink";
 import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/agent";
 import { PUBLIC_INTERFACE_VERSION } from "@aihot/contracts/http-policy";
@@ -7,7 +6,7 @@ import { SEO_TITLES, SITE } from "@aihot/site";
 import { apiGet, cachedPage } from "../lib/api.server";
 import { pageReuse } from "../lib/page-reuse";
 import { listPath, pageMeta, siteUrl } from "../lib/seo";
-import { IconArrowUpRight, IconChevronRight, IconCode, IconPlug, IconRss } from "../components/icons";
+import { IconArrowUpRight, IconCode, IconPlug, IconRss } from "../components/icons";
 import { Kicker } from "../components/ui/Kicker";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
 import { AGENT_PARTS, GUIDE_CLIENTS, TAG } from "../features/agent/module-parts";
@@ -157,12 +156,6 @@ export default function AgentPage() {
             </a>
           ))}
         </nav>
-      </AsideCard>
-      <AsideCard title="没接上？">
-        <p className="text-[13px] leading-[1.75] text-ink-3">把平台、版本和报错写在反馈页，别发 token 或本地文件。</p>
-        <IntentLink viewTransition to="/feedback" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
-          去反馈 <IconChevronRight size={14} />
-        </IntentLink>
       </AsideCard>
     </>
   );

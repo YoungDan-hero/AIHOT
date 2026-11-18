@@ -6,7 +6,6 @@
 // page's code: the page waits for its parts while its own code loads (site-modules.ts `loadParts`) and then
 // renders them like any import.
 import type { ComponentType, ReactNode } from "react";
-import type { TopicSummary } from "@aihot/contracts/site";
 import type { NavItem, Tab } from "./components/shell/nav";
 
 export type Part<T> = () => Promise<{ default: T }>;
@@ -89,20 +88,6 @@ export interface AgentPart {
   apiErrors?: Array<[status: string, what: ReactNode]>;
 }
 
-/** A module's part of a topic page (routes/topic.tsx), from what its server module's topics.page returned for it. */
-export interface TopicPagePart {
-  /** What it is called: after "最新动态与" in the page's title, and in the name of its structured-data list. */
-  name: string;
-  /** Whether it has anything on this page; without, the page leaves it out of its body and its head. */
-  shows: (data: unknown, topic: TopicSummary) => boolean;
-  /** Drawn between the page's header and its list. */
-  Block: ComponentType<{ data: unknown; topic: TopicSummary }>;
-  /** Its entries for the page's structured data, newest first; one with an event page links to it. */
-  entries: (data: unknown) => Array<{ title: string; href: string | null }>;
-  /** The headlines of its most important recent events: the search snippet leads with the first two. */
-  news: (data: unknown) => string[];
-}
-
 export interface WebModule {
   /** Its folder under modules/. */
   name: string;
@@ -120,26 +105,10 @@ export interface WebModule {
     Top?: ComponentType;
     /** After the page. */
     Bottom?: ComponentType;
-    /** Headers the document's own request to the api carries (the root loader). */
-    documentHeaders?: (request: Request) => Record<string, string>;
   };
   agent?: Part<AgentPart>;
-  topicPage?: Part<TopicPagePart>;
-  /** Paths of the marks it serves that are drawn in white, for a dark tile (components/BrandMark.tsx). */
-  darkMarks?: string[];
   /** The starred page (routes/starred.tsx): buttons ahead of 导入文件 that bring stars in from elsewhere, each resolving to the line it reports. */
   starredImports?: Array<{ label: string; run: () => Promise<{ ok: boolean; text: string }> }>;
-  /**
-   * The feedback page (routes/feedback.tsx): a draft kept elsewhere in this browser, read when the page
-   * keeps none of its own ({ content, email, pageUrl }), and cleared once its own is saved or sent.
-   */
-  feedbackDraft?: { read: () => unknown; clear: () => void };
-  /**
-   * The feedback page opened from one of its buttons, a link carrying `state: { feedbackFor: <its name> }`: the
-   * heading, the line under it, the example in the box and the tips beside the form, in place of the site's.
-   * The link may also carry `content`, what the reader has already typed there: the page's box starts with it.
-   */
-  feedbackGuide?: { title: string; lead: string; example: string; tips: string[] };
   /** A press a page reports for the site's own counts (lib/clicks.ts): what was pressed, nothing about the reader. */
   onClick?: (target: string) => void;
   /** The terms page's footer: links after the engine's (routes/terms.tsx). */

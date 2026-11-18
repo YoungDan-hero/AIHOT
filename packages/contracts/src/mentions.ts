@@ -1,5 +1,5 @@
 // Names in the site's own text (an article's summary, an event's overview, a report's paragraphs) that
-// lead to the page about them, such as a model's page or a company's topic. The api finds which pages a
+// lead to the page about them, such as a model’s page. The api finds which pages a
 // page's texts name; the page links them as it draws the texts, so both read names the same way.
 import { bareAddresses, shownAddress } from "./addresses.ts";
 

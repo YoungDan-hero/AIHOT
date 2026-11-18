@@ -2,13 +2,13 @@
 import type { PoolResponse, TimelineFilters } from "@aihot/contracts/site";
 import { beijingDate, beijingMidnight } from "@aihot/contracts/time";
 import { one, sql, withCustomPlans, type Db } from "../db.ts";
+import { entityIdentity } from "../editorial/vocabulary.ts";
 import { cachedByKey, sharedSearch } from "../lib/cache.ts";
 import {
   categoryCondition, channelCondition, ITEM_COLUMNS, ITEM_FROM, seatHolders, tagCondition, toFeedItemSummary,
   type ItemRow,
 } from "./items.ts";
 import { browsedCondition, listedCondition } from "./scope.ts";
-import { TOPICS } from "./topics.ts";
 
 export const POOL_PAGE_SIZE = 40;
 export const POOL_MAX_PAGES = 50;
@@ -74,21 +74,6 @@ export function directMatchCondition(terms: string[]) {
   return terms.reduce((acc, t) => sql`${acc} AND p.search_text LIKE ${"%" + t + "%"}`, sql``);
 }
 
-const normalizeAlias = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
-
-/**
- * The company a whole query names: a company topic's slug, full name,
- * each part of "OpenAI / ChatGPT" and its other names. Then the search also takes the articles about
- * that company (their subject tag), so "claude" finds Anthropic's news that never writes the word.
- * Only the whole query counts: "deepseek v4" stays a text search, not all of DeepSeek.
- */
-function queryEntityTag(q: string): string | null {
-  const want = normalizeAlias(q);
-  if (!want) return null;
-  const topic = TOPICS.find((t) => t.entityId && t.aliases.some((a) => normalizeAlias(a) === want));
-  return topic ? `entity:${topic.entityId}` : null;
-}
-
 /**
  * The public APIs' q (v1 and MCP): every term matches the subject, title or summary, or the start of a
  * body whose full text may be shown, as the API documents it ("title / Chinese title / Chinese summary
@@ -143,7 +128,9 @@ async function queryPool(query: PoolQuery, now: Date): Promise<PoolResponse> {
   const q = query.q?.trim() || null;
   const tab = q && query.tab === "relevance" ? "relevance" : "time";
   const terms = q ? searchTerms(q) : [];
-  const entityTag = q ? queryEntityTag(q) : null;
+  // A whole company name or alias also finds reports with that entity's subject tag.
+  const entity = entityIdentity(q);
+  const entityTag = entity ? `entity:${entity}` : null;
   const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)}`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;

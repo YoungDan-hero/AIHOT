@@ -31,19 +31,19 @@ test('inherited object names are nonexistent share cards', async () => {
 });
 
 test('ordinary share cards keep their PNG and conditional cache responses', async () => {
-  const response = await app.inject('/og/pages/topics.png');
+  const response = await app.inject('/og/pages/about.png');
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.headers['content-type'], 'image/png');
   assert.deepEqual([...response.rawPayload.subarray(0, 8)], [137,80,78,71,13,10,26,10]);
-  const cached = await app.inject({ url: '/og/pages/topics.png', headers: { 'if-none-match': response.headers.etag! } });
+  const cached = await app.inject({ url: '/og/pages/about.png', headers: { 'if-none-match': response.headers.etag! } });
   assert.equal(cached.statusCode, 304);
 });
 
-test('decoded controls in topic paths cut the path there without injecting response headers', async () => {
-  for (const [slug, page] of [['abc%0D%0AX-Evil:1', '/topics/abc'], ['abc%0A', '/topics/abc'], ['abc%0D', '/topics/abc'],
-    ['abc%0A%09X-Evil:1', '/topics/abc'], ['%0AX-Evil:1', '/topics/']]) {
+test('decoded controls in item paths cut the path there without injecting response headers', async () => {
+  for (const [slug, page] of [['abc%0D%0AX-Evil:1', '/items/abc'], ['abc%0A', '/items/abc'], ['abc%0D', '/items/abc'],
+    ['abc%0A%09X-Evil:1', '/items/abc'], ['%0AX-Evil:1', '/items/']]) {
     for (const suffix of ['', '/page/1', '/page/2']) {
-      const response = await fetch(`${web.origin}/topics/${slug}${suffix}`, { redirect: 'manual' });
+      const response = await fetch(`${web.origin}/items/${slug}${suffix}`, { redirect: 'manual' });
       assert.equal(response.status, 301, `${slug}${suffix}: ${web.logs()}`);
       assert.equal(response.headers.get('x-evil'), null);
       assert.equal(response.headers.get('location'), page);
@@ -70,9 +70,9 @@ test('a page link that ran into the text after it goes to the page it meant, spe
     ['/agent%5D(https:/example.org/agent', '/agent'],
     ['/daily%EF%BC%9A', '/daily'],
     ['/items/e80fmjdp23n217sd6e7ky52om%EF%BC%8C', '/items/e80fmjdp23n217sd6e7ky52om'],
-    ['/topics/agent%E3%80%8B', '/topics/agent'],
+    ['/items/abc%E3%80%8B', '/items/abc'],
     // What is kept keeps its escapes: letters of another script, and separators that would otherwise split the URL.
-    ['/topics/%E6%99%BA%E8%83%BD%E4%BD%93%E3%80%82', '/topics/%E6%99%BA%E8%83%BD%E4%BD%93'], // 智能体。
+    ['/items/%E6%99%BA%E8%83%BD%E4%BD%93%E3%80%82', '/items/%E6%99%BA%E8%83%BD%E4%BD%93'], // 智能体。
     ['/agent%E7%A0%94%E7%A9%B6%E4%B8%8B%E3%80%82', '/agent%E7%A0%94%E7%A9%B6%E4%B8%8B'], // agent研究下。
     ['/items/abc%23%3F%E3%80%82', '/items/abc%23%3F'],
     ['/%61gent%E3%80%82', '/%61gent'],
@@ -86,7 +86,7 @@ test('a page link that ran into the text after it goes to the page it meant, spe
 
 test('real pages, their data, slugs in other scripts and aliases with their own rule are not cut', () => {
   for (const path of ['/', '//', '/agent', '/all.data', '/daily/2026-11-09', '/weekly/2026-W45', '/items/e80fmjdp23n217sd6e7ky52om',
-    '/story/d01448e7-e6ef-4224-9e13-5f4b350dd6ed', '/topics/agent/page/2', '/topics/%E6%99%BA%E8%83%BD%E4%BD%93',
+    '/story/d01448e7-e6ef-4224-9e13-5f4b350dd6ed', '/items/%E6%99%BA%E8%83%BD%E4%BD%93',
     // Text run on without punctuation is not guessed at: it may be a slug.
     '/agent%E7%A0%94%E7%A9%B6%E4%B8%8B']) {
     assert.equal(resolveRedirect(path, ''), null, path);
@@ -105,15 +105,19 @@ test('the cut never leaves the site, climbs out of a path or writes what a heade
     assert.ok(location === null || !/(^|\/)\.{1,2}(\/|$)/.test(location), `${path} -> ${location}`);
   }
   assert.equal(resolveRedirect('/agent%E3%80', ''), null, 'a malformed escape is left to the page');
-  assert.equal(resolveRedirect('/topics/智能体。', ''), null, 'an unescaped letter is left to the page');
+  assert.equal(resolveRedirect('/items/智能体。', ''), null, 'an unescaped letter is left to the page');
 });
 
 test('api paths answer as they are', () => {
   for (const path of ['/api/v1/items%EF%BC%8C', '/api/site/items%E3%80%82', '/api/mcp**']) assert.equal(resolveRedirect(path, ''), null, path);
 });
 
-test('ordinary first topic page keeps its permanent redirect', async () => {
-  const response = await fetch(`${web.origin}/topics/openai/page/1`, { redirect: 'manual' });
-  assert.equal(response.status, 308);
-  assert.equal(response.headers.get('location'), '/topics/openai');
+test('retired topic directory, detail and share cards return 404', async () => {
+  for (const path of ['/topics', '/topics/reelshort', '/topics/reelshort/page/2']) {
+    const response = await fetch(`${web.origin}${path}`, { redirect: 'manual' });
+    assert.equal(response.status, 404, path);
+  }
+  for (const path of ['/og/pages/topics.png', '/og/topics/reelshort.png']) {
+    assert.equal((await app.inject(path)).statusCode, 404, path);
+  }
 });

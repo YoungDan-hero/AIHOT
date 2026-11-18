@@ -10,7 +10,6 @@ import { promisify } from "node:util";
 import { beijingDate, beijingWeekday } from "@aihot/contracts/time";
 import { config } from "../config.ts";
 import { sql } from "../db.ts";
-import { screenshotsForwarded } from "./feedback.ts";
 
 const run = promisify(execFile);
 const KEEP_LOCAL = 3;
@@ -105,23 +104,22 @@ export async function runBackup(now = new Date()) {
   const files = path.join(dir, `${name}-files-${stamp}.tar.gz`);
   // No archive when there are no attachments. A failure to read or pack existing files is
   // tried once more and otherwise reported: the database dump still ships, but the run fails.
-  const kept: string[] = [];
-  // Feedback screenshots only waiting to be forwarded are not kept (once forwarded, only the Feishu image
-  // key remains). Without the internal chat they stay here for good, referred to as local: files.
+  let archivedUploads = false;
   let filesError: string | null = null;
   try {
-    for (const d of screenshotsForwarded() ? ["uploads"] : ["uploads", "feedback-screenshots"]) {
-      const info = await stat(path.join(config.dataDir, d)).catch((error: NodeJS.ErrnoException) => {
-        if (error.code === "ENOENT") return null;
-        throw error;
-      });
-      if (!info) continue;
-      if (!info.isDirectory()) throw new Error(`backup ${d} path is not a directory`);
-      if ((await readdir(path.join(config.dataDir, d), { recursive: true, withFileTypes: true })).some(entry => !entry.isDirectory())) kept.push(d);
-    }
-    if (kept.length) {
-      const pack = () => run("tar", ["-czf", files, "-C", config.dataDir, ...kept]);
-      await pack().catch(() => pack());
+    const uploads = path.join(config.dataDir, "uploads");
+    const info = await stat(uploads).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    if (info) {
+      if (!info.isDirectory()) throw new Error("backup uploads path is not a directory");
+      const entries = await readdir(uploads, { recursive: true, withFileTypes: true });
+      if (entries.some(entry => !entry.isDirectory())) {
+        const pack = () => run("tar", ["-czf", files, "-C", config.dataDir, "uploads"]);
+        await pack().catch(() => pack());
+        archivedUploads = true;
+      }
     }
   } catch (error: unknown) {
     // tar's own words: the message starts with the whole command line, which can fill the excerpt.
@@ -131,7 +129,7 @@ export async function runBackup(now = new Date()) {
   const out: Array<{ key: string; bytes: number; sha256: string }> = [];
   const today = beijingDate(now);
   const prefix = today.endsWith("-01") ? "monthly" : beijingWeekday(today) === "星期日" ? "weekly" : "daily";
-  for (const file of kept.length && !filesError ? [dump, files] : [dump]) {
+  for (const file of archivedUploads ? [dump, files] : [dump]) {
     const size = (await stat(file)).size;
     const sha = await fileSha256(file);
     // One upload per file; the chosen prefix carries its retention class.

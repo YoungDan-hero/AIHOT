@@ -38,7 +38,7 @@ export function storyReportCondition(now: Date) {
   return sql`p.visibility = 'public' AND s.participation_mode = 'editorial' AND ${releasedCondition(now)}`;
 }
 
-/** Selected set as the website shows it (home timeline, reading groups, topics): every selected report. */
+/** Selected set as the website shows it (home timeline and reading groups): every selected report. */
 export function selectedCondition(now: Date) {
   return sql`p.visibility = 'public' AND p.selected AND p.visible_after <= ${now}`;
 }

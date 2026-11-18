@@ -1,5 +1,4 @@
 // Where search engines' fetches go, specified before the implementation:
-// - topic archive pages (/topics/<slug>/page/N) fill the sitemap, though they are reached from the topic page;
 // - nothing tells an engine what is new, so today's events, selections and reports queue behind old URLs;
 // - pages whose own text is only a summary's worth are advertised to Google, which spends its fetches on them;
 // - keeping those pages from Google also keeps them from the engines that index them, or from notifications;
@@ -33,7 +32,6 @@ interface Report {
   selected?: boolean;
   indexable?: boolean;
   manual?: boolean;
-  tags?: string[];
 }
 
 async function report(name: string, r: Report) {
@@ -43,10 +41,10 @@ async function report(name: string, r: Report) {
     VALUES (${article},${source},${article},${`https://example.org/${article}`},'Fixture',${r.at},${r.at},${r.body === undefined ? "none" : "ok"},
       ${r.body ?? null},${r.body === undefined ? null : `<p>${r.body}</p>`},${xPost ? sql.json(xPost) : null},${r.article ? sql.json({ text: r.article }) : null})`;
   await sql`INSERT INTO publications (article_id,source_id,title,summary,url,timeline_at,discovered_at,sort_at,selected,eligible,indexable,
-      visible_after,channel,category,body_mode,tags,seo_indexed_at)
+      visible_after,channel,category,body_mode,seo_indexed_at)
     VALUES (${article},${source},'公开报道','一段转述原文的摘要。',${`https://example.org/${article}`},${r.at},${r.at},${r.at},${r.selected ?? true},true,
       ${r.indexable ?? true},${r.at},${r.channel ?? "news"},'domestic',${r.bodyMode ?? (r.body === undefined && !r.article ? "summary" : "full")},
-      ${r.tags ?? []},${r.manual ? r.at : null})`;
+      ${r.manual ? r.at : null})`;
   return article;
 }
 
@@ -66,8 +64,6 @@ const stories: Record<string, string> = {};
 
 before(async () => {
   await sql`INSERT INTO sources (id,name,kind,tier,participation_mode) VALUES (${source},'Focus','rss','T1','editorial')`;
-  // A topic of three pages, all of it older than the news window.
-  for (let n = 0; n < 45; n++) await report(`topic-${n}`, { at: ago(240 + n), body: long, tags: ["entity:dramabox"] });
   Object.assign(ids, {
     long: await report("long", { at: ago(1), body: long }),
     noBody: await report("no-body", { at: ago(1) }),
@@ -111,12 +107,16 @@ async function file(name: string) {
   return res.body;
 }
 
-test("the sitemap leaves a topic's archive pages to the topic page; notifications keep them", async () => {
-  const topics = urls(await file("topics"));
-  assert.ok(topics.includes("/topics/dramabox"));
-  assert.ok(!topics.some((path) => path.startsWith("/topics/dramabox/page/")), "archive pages are reached from the topic page");
-  const inventory = (await loadDiscoveryEntries(new Date())).map((e) => e.loc);
-  assert.ok(inventory.includes("/topics/dramabox/page/2") && inventory.includes("/topics/dramabox/page/3"), "engines are still told when they change");
+test("discovery excludes the retired topic directory", async () => {
+  const inventory = await loadDiscoveryEntries();
+  assert.ok(!inventory.some(({ loc }) => /^\/topics(?:\/|$)/.test(loc)));
+  const index = await app.inject("/sitemap.xml");
+  assert.equal(index.statusCode, 200);
+  assert.ok(!urls(index.body).includes("/sitemaps/topics.xml"));
+  assert.equal((await app.inject("/sitemaps/topics.xml")).statusCode, 404);
+  const llms = await app.inject("/llms.txt");
+  assert.equal(llms.statusCode, 200);
+  assert.doesNotMatch(llms.body, /\/topics(?:[)/]|$)/);
 });
 
 test("a page whose own text is a summary's worth is kept from Google only, and from the sitemap", async () => {

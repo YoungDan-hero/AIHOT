@@ -1,15 +1,10 @@
-// Feishu delivery. Two separate apps: the login app (admin OAuth) and the message app (internal
-// feedback chat, operations alert chat, image upload). Content groups use custom bot webhooks, and so do
-// alerts when FEISHU_ALERT_WEBHOOK_URL is set (they are plain text; feedback screenshots need the app).
-// Alerts and feedback never go to content groups, and content never goes to internal chats. What the owner is
-// told (sendAlert) goes first to Agent 自动化中台, which passes it on.
+// Feishu delivery. The login app is used for admin OAuth and the message app for internal alerts.
+// Content groups use custom bot webhooks, and so do alerts when FEISHU_ALERT_WEBHOOK_URL is set.
+// Owner alerts go first to Agent 自动化中台, which passes them on.
 // Everything outward is off unless explicitly enabled (development and tests stay silent).
 import { createHash } from "node:crypto";
-import { readFile, unlink } from "node:fs/promises";
-import path from "node:path";
 import { beijingStamp } from "@aihot/contracts/time";
 import { config, credential } from "../config.ts";
-import { sql } from "../db.ts";
 
 const API = "https://open.feishu.cn/open-apis";
 
@@ -34,39 +29,15 @@ async function tenantToken(): Promise<string> {
   return tokenCache.token;
 }
 
-/** Feishu's answers that the picture itself is unacceptable (bad image, too large, empty): trying again cannot help. */
-const IMAGE_REFUSED = new Set([234001, 234006, 234010, 234011]);
-
-class ImageRefusedError extends Error {}
-
-async function uploadImage(data: Buffer, filename: string): Promise<string> {
-  const form = new FormData();
-  form.set("image_type", "message");
-  form.set("image", new Blob([new Uint8Array(data)]), filename);
-  const res = await fetch(`${API}/im/v1/images`, { method: "POST", headers: { authorization: `Bearer ${await tenantToken()}` }, body: form, signal: AbortSignal.timeout(30_000) });
-  const json = (await res.json()) as { code: number; data?: { image_key: string }; msg?: string };
-  if (IMAGE_REFUSED.has(json.code)) throw new ImageRefusedError(`feishu upload: ${json.msg}`);
-  if (json.code !== 0 || !json.data) throw new Error(`feishu upload: ${json.msg}`);
-  return json.data.image_key;
-}
-
-/** A picture this app uploaded, read back by its key (Feishu gives an app only its own uploads). */
-export async function downloadImage(imageKey: string): Promise<Buffer> {
-  const res = await fetch(`${API}/im/v1/images/${encodeURIComponent(imageKey)}`, { headers: { authorization: `Bearer ${await tenantToken()}` }, signal: AbortSignal.timeout(30_000) });
-  if (!res.ok) throw new Error(`feishu image: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
-  return Buffer.from(await res.arrayBuffer());
-}
-
-async function sendToChat(chatId: string, msgType: "text" | "post" | "interactive", content: unknown): Promise<string> {
+async function sendTextToChat(chatId: string, text: string): Promise<void> {
   const res = await fetch(`${API}/im/v1/messages?receive_id_type=chat_id`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${await tenantToken()}` },
-    body: JSON.stringify({ receive_id: chatId, msg_type: msgType, content: JSON.stringify(content) }),
+    body: JSON.stringify({ receive_id: chatId, msg_type: "text", content: JSON.stringify({ text }) }),
     signal: AbortSignal.timeout(20_000),
   });
-  const json = (await res.json()) as { code: number; data?: { message_id: string }; msg?: string };
+  const json = (await res.json()) as { code: number; msg?: string };
   if (json.code !== 0) throw new Error(`feishu send: ${json.msg}`);
-  return json.data?.message_id ?? "";
 }
 
 // Operations alerts
@@ -152,7 +123,7 @@ export function formatRecovery(title: string, since: Date, now: number): { title
 /**
  * What the owner is told: through Agent 自动化中台 when the hub is set up; when it isn't, or doesn't take
  * it (it restarts on every release), the alert group's bot webhook, else the alert chat, falling back to the
- * internal feedback chat — never a content group.
+ * default internal chat.
  */
 export async function sendAlert(title: string, lines: string[]): Promise<"sent" | "disabled"> {
   // Production needs no label; any other environment that has sending on says which one it is.
@@ -173,7 +144,7 @@ export async function sendAlert(title: string, lines: string[]): Promise<"sent" 
   }
   const chat = credential("integrations", "FEISHU_ALERT_CHAT_ID") ?? credential("integrations", "FEISHU_INTERNAL_CHAT_ID");
   if (!chat) return "disabled";
-  await sendToChat(chat, "text", { text: rest.join("") });
+  await sendTextToChat(chat, rest.join(""));
   return "sent";
 }
 
@@ -249,75 +220,6 @@ function webhookPieces(text: string): string[] {
   }
   pieces.push(rest);
   return pieces;
-}
-
-/** A screenshot that still cannot be uploaded this long after the feedback is given up: the text goes without it. */
-const SCREENSHOT_GIVE_UP_MS = 24 * 3600_000;
-
-/**
- * The screenshot to attach, uploaded now or on an earlier try. Only the Feishu image key is kept (privacy
- * notice): the local file is removed once uploaded, or once the upload is given up.
- */
-async function screenshotFor(fb: { id: number; screenshot_key: string | null; created_at: Date }): Promise<{ imageKey: string | null; note: string | null }> {
-  const key = fb.screenshot_key;
-  if (key?.startsWith("feishu:")) return { imageKey: key.slice("feishu:".length), note: null };
-  if (key === "gone:upload") return { imageKey: null, note: "（截图未能上传，已删除）" };
-  if (key === "gone:missing") return { imageKey: null, note: "（截图文件已不存在）" };
-  if (!key?.startsWith("local:")) return { imageKey: null, note: null };
-  const file = path.join(config.dataDir, "feedback-screenshots", key.slice("local:".length));
-  const data = await readFile(file).catch(() => null);
-  if (!data) {
-    await sql`UPDATE feedback SET screenshot_key = 'gone:missing' WHERE id = ${fb.id}`;
-    return { imageKey: null, note: "（截图文件已不存在）" };
-  }
-  try {
-    const imageKey = await uploadImage(data, path.basename(file));
-    await sql`UPDATE feedback SET screenshot_key = ${`feishu:${imageKey}`} WHERE id = ${fb.id}`;
-    await unlink(file).catch(() => {});
-    return { imageKey, note: null };
-  } catch (error) {
-    // The forwarding sweep tries again; after a day, or at once when Feishu refuses the picture itself,
-    // the text goes without it.
-    if (!(error instanceof ImageRefusedError) && Date.now() - fb.created_at.getTime() < SCREENSHOT_GIVE_UP_MS) throw error;
-    await sql`UPDATE feedback SET screenshot_key = 'gone:upload' WHERE id = ${fb.id}`;
-    await unlink(file).catch(() => {});
-    return { imageKey: null, note: "（截图未能上传，已删除）" };
-  }
-}
-
-/**
- * Forwards one feedback to the internal chat, with its screenshot. Until that succeeds the feedback keeps
- * the reason in forward_error, and the forwarding sweep (operations/feedback.ts) tries it again.
- * `tell` false: the chat is not told, and only the screenshot goes to Feishu ("kept").
- */
-export async function forwardFeedbackToFeishu(id: number, tell = true): Promise<"sent" | "kept" | "disabled"> {
-  if (!feishuInternalEnabled()) return "disabled";
-  const chat = credential("integrations", "FEISHU_INTERNAL_CHAT_ID");
-  if (!chat) return "disabled";
-  const [fb] = await sql<{ id: number; content: string; email: string | null; note: string | null; page_url: string | null; screenshot_key: string | null; created_at: Date }[]>`
-    SELECT id, content, email, note, page_url, screenshot_key, created_at FROM feedback WHERE id = ${id} AND forwarded_at IS NULL`;
-  if (!fb) return "disabled";
-  try {
-    const shot = await screenshotFor(fb);
-    if (!tell) {
-      await sql`UPDATE feedback SET forward_error = NULL WHERE id = ${id}`;
-      return "kept";
-    }
-    const paragraphs: unknown[][] = [
-      [{ tag: "text", text: fb.content }],
-      [{ tag: "text", text: `页面：${fb.page_url ?? "—"}` }],
-      [{ tag: "text", text: `邮箱：${fb.email ?? "（未留）"}` }],
-    ];
-    if (fb.note) paragraphs.push([{ tag: "text", text: fb.note }]);
-    if (shot.imageKey) paragraphs.push([{ tag: "img", image_key: shot.imageKey }]);
-    else if (shot.note) paragraphs.push([{ tag: "text", text: shot.note }]);
-    await sendToChat(chat, "post", { zh_cn: { title: `反馈 #${fb.id}`, content: paragraphs } });
-    await sql`UPDATE feedback SET forwarded_at = now(), forward_error = NULL WHERE id = ${id}`;
-    return "sent";
-  } catch (error) {
-    await sql`UPDATE feedback SET forward_error = ${String(error instanceof Error ? error.message : error).slice(0, 300)} WHERE id = ${id}`;
-    throw error;
-  }
 }
 
 /** Custom-bot webhook for content groups (selected cards and other pushes). */
