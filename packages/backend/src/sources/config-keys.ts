@@ -47,7 +47,7 @@ const preserveRules = (value: unknown) => Array.isArray(value) && value.every((r
 
 const VALUES: Record<string, string[]> = {
   publisherRole: ["organization", "person"],
-  adapter: ["mimo_home", "xinwanr_news", "bianews_news", "lmtw_news"],
+  adapter: ["mimo_home", "xinwanr_news", "bianews_news", "lmtw_news", "huanqiu_news"],
   parseMode: ["html", "markdown", "docusaurus_changelog", "markdown_changelog", "intercom_changelog"],
 };
 

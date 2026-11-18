@@ -296,7 +296,7 @@ export const DEPLOYMENT = {
    * 已实测应由服务器直接连接、不走出网代理（EGRESS_PROXY_URL）的域名，采集和图片共用（选填）。
    * 每次重定向重新按目标域名选路，直连仍检查实际连接地址。
    */
-  directFetchHosts: [] as string[],
+  directFetchHosts: ["hb.dzwww.com", "www.dzwww.com"] as string[],
   /** 同域公开采集请求的起点间隔；API 与 worker 共用数据库节流，裸域与 www 使用同一桶。 */
   publicFetchIntervalsMs: {
     "21jingji.com": 2000,
@@ -307,6 +307,8 @@ export const DEPLOYMENT = {
     "adquan.com": 2000,
     "advanced-television.com": 2000,
     "afaqs.com": 2000,
+    "api.cnstock.com": 2000,
+    "api.github.com": 2000,
     "api.thepaper.cn": 2000,
     "api3.cls.cn": 2000,
     "appfigures.com": 2000,
@@ -331,6 +333,7 @@ export const DEPLOYMENT = {
     "cnnb.com.cn": 2000,
     "cnnic.cn": 2000,
     "cnsa.cn": 2000,
+    "cnstock.com": 2000,
     "col.com": 2000,
     "comm.ecnu.edu.cn": 2000,
     "company.wattpad.com": 2000,
@@ -351,13 +354,16 @@ export const DEPLOYMENT = {
     "donews.com": 2000,
     "duanju007.com": 2000,
     "dwdl.de": 2000,
+    "dzwww.com": 2000,
     "e.gmw.cn": 2000,
     "engadget.com": 2000,
+    "ent.huanqiu.com": 2000,
     "ent.people.com.cn": 2000,
     "entrackr.com": 2000,
     "fangirlish.com": 2000,
     "foshannews.net": 2000,
     "fun.youth.cn": 2000,
+    "github.com": 2000,
     "gbdsj.cq.gov.cn": 2000,
     "gbdsj.gd.gov.cn": 2000,
     "gbdsj.guizhou.gov.cn": 2000,
@@ -377,6 +383,7 @@ export const DEPLOYMENT = {
     "gdj.xizang.gov.cn": 2000,
     "geekpark.net": 2000,
     "hangzhou.com.cn": 2000,
+    "hb.dzwww.com": 2000,
     "hi-lp.cn": 2000,
     "hindustantimes.com": 2000,
     "hljgdj.hlj.gov.cn": 2000,

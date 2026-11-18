@@ -1,5 +1,5 @@
 {
-  "$comment": "短剧前线实际采集信源：200个启用（国内150、海外50），另1个暂停并保留历史。默认仅摘要与原文链接。",
+  "$comment": "短剧前线实际采集信源：203个启用（国内153、海外50），另1个暂停并保留历史。默认仅摘要与原文链接。",
   "sources": [
     {
       "id": "drama-duanju007",
@@ -8645,6 +8645,164 @@
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false
+    },
+    {
+      "id": "drama-haibao",
+      "name": "海报新闻／海量财经",
+      "kind": "web_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "config": {
+        "url": "https://www.dzwww.com/news/hlcjnews/",
+        "parseMode": "html",
+        "itemSelector": ".news-list li",
+        "linkSelector": "h3 a",
+        "titleSelector": "h3 a",
+        "publishedAtSelector": "p label",
+        "publishedAtUtcOffset": "+08:00",
+        "allowUrlPrefixes": [
+          "https://www.dzwww.com/news/hlcjnews/"
+        ],
+        "detail": {
+          "maxFetches": 6,
+          "publishedAtSelector": "meta[name=\"pubtime\"], .news-head p label:nth-of-type(2)",
+          "publishedAtAuthoritative": true
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "短剧",
+            "漫剧",
+            "竖屏",
+            "红果",
+            "ReelShort",
+            "DramaBox",
+            "含AI量"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 6,
+          "initialBackfillMonths": 12
+        },
+        "publishedAfter": "2025-11-13T00:00:00Z",
+        "sortByPublishedAt": true
+      },
+      "enabled": true
+    },
+    {
+      "id": "drama-huanqiu",
+      "name": "环球网",
+      "kind": "web_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "config": {
+        "url": "https://ent.huanqiu.com/",
+        "adapter": "huanqiu_news",
+        "allowUrlPrefixes": [
+          "https://ent.huanqiu.com/article/"
+        ],
+        "publishedAtUtcOffset": "+08:00",
+        "detail": {
+          "maxFetches": 6,
+          "publishedAtRegex": "<textarea\\b[^>]*class=[\"']article-time[\"'][^>]*>(\\d+)</textarea>",
+          "publishedAtUnit": "epoch_ms",
+          "publishedAtAuthoritative": true,
+          "titleSelector": "textarea.article-title"
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "短剧",
+            "漫剧",
+            "竖屏",
+            "ReelShort",
+            "DramaBox"
+          ]
+        },
+        "sortByPublishedAt": true,
+        "publishedAfter": "2025-11-13T00:00:00Z",
+        "_aihot": {
+          "initialBackfillLimit": 6,
+          "initialBackfillMonths": 12
+        },
+        "itemSelector": ".item"
+      },
+      "enabled": true
+    },
+    {
+      "id": "drama-cnstock",
+      "name": "中国证券网（上海证券报）",
+      "kind": "json_list",
+      "tier": "T2",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "国内信源"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "config": {
+        "url": "https://api.cnstock.com/www/newsList/nodeNewsList",
+        "mode": "json_api",
+        "method": "POST",
+        "headers": {
+          "cnstock-client-type": "01",
+          "Origin": "https://www.cnstock.com",
+          "Referer": "https://www.cnstock.com/list/10082"
+        },
+        "bodyJson": {
+          "nodeId": "10082",
+          "filterIdArray": [],
+          "isChannel": false,
+          "pageNum": 1,
+          "pageSize": 32,
+          "startTime": 0
+        },
+        "itemsPath": "data.pageInfo.list",
+        "titlePaths": [
+          "name"
+        ],
+        "summaryPaths": [
+          "summary"
+        ],
+        "externalIdPath": "contId",
+        "urlTemplate": "https://www.cnstock.com/commonDetail/{contId}",
+        "publishedAtPath": "pubTime",
+        "publishedAtUtcOffset": "+08:00",
+        "sortByPublishedAt": true,
+        "detail": {
+          "maxFetches": 6,
+          "publishedAtRegex": "\"pubTime\":\"(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})\"",
+          "publishedAtAuthoritative": true
+        },
+        "ingestNoiseFilter": {
+          "requireMarkers": [
+            "短剧",
+            "微短剧",
+            "漫剧",
+            "竖屏"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 6,
+          "initialBackfillMonths": 12
+        },
+        "publishedAfter": "2025-11-13T00:00:00Z",
+        "allowUrlPrefixes": [
+          "https://www.cnstock.com/commonDetail/"
+        ]
+      },
+      "enabled": true
     }
   ]
 }

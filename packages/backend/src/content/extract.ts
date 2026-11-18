@@ -130,6 +130,35 @@ function settleStreamedContent(document: ReturnType<typeof parseHTML>["document"
   }
 }
 
+/** These publishers ship the public article as inert page data; restore that article without running scripts. */
+function settleEmbeddedArticle(document: ReturnType<typeof parseHTML>["document"], url: string) {
+  const page = new URL(url);
+  let html: unknown;
+  let attribution: string | undefined;
+  if (/(?:^|\.)huanqiu\.com$/.test(page.hostname)) {
+    const id = /^\/article\/([A-Za-z0-9]+)$/.exec(page.pathname)?.[1];
+    const field = (name: string) => document.querySelector(`textarea.article-${name}`)?.textContent?.trim();
+    if (id && field("aid") === id) {
+      const content = field("content");
+      if (content) { html = content; attribution = field("source-name"); }
+    }
+  } else if (["cnstock.com", "www.cnstock.com"].includes(page.hostname)) {
+    const id = /^\/commonDetail\/(\d+)$/.exec(page.pathname)?.[1];
+    const data = document.querySelector('script#__NEXT_DATA__[type="application/json"]')?.textContent;
+    if (id && data) {
+      try {
+        const detail = JSON.parse(data)?.props?.pageProps;
+        if (String(detail?.contId) === id && String(detail?.data?.contId) === id) html = detail.data.textInfo?.content;
+      } catch { /* Malformed page data is no article body. */ }
+    }
+  }
+  if (typeof html !== "string" || !html.trim() || !document.body) return;
+  const article = document.createElement("article");
+  article.innerHTML = html;
+  document.body.appendChild(article);
+  return attribution;
+}
+
 /**
  * Readability leaves out what an inline style hides, but compares style.display and style.visibility
  * literally, and linkedom keeps the author's case and "!important" in them. A style that sets either is
@@ -761,6 +790,7 @@ export function readableDocument(document: Doc, url: string, rules: PageRules = 
     // no head
   }
   settleStreamedContent(document);
+  const embeddedAttribution = settleEmbeddedArticle(document, url);
   settleInlineVisibility(document);
   preserveWidgets(document, rules.preserve ?? []);
   describeFigureDrawings(document);
@@ -778,7 +808,9 @@ export function readableDocument(document: Doc, url: string, rules: PageRules = 
   document.documentElement.removeAttribute("class");
   const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], { charThreshold: MIN_BODY_CHARS, keepClasses: false }).parse();
   if (!article?.content) return null;
-  const clean = trimTrailingChrome(sanitizeBody(withoutScreenReaderLinkText(article.content), url));
+  const body = trimTrailingChrome(sanitizeBody(withoutScreenReaderLinkText(article.content), url));
+  if (stripTags(body).length < MIN_BODY_CHARS) return null;
+  const clean = (embeddedAttribution ? sanitizeBody(`<p>来源：${embeddedAttribution}</p>`, url) : "") + body;
   const text = stripTags(clean);
   if (text.length < MIN_BODY_CHARS) return null;
   try { assertPageContent(article.title ?? "", text); }

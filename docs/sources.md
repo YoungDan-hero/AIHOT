@@ -82,6 +82,7 @@
 - 链接默认取自 `href`，有些列表将文章路径放在 `data-link` 或 `data-href`，可用 `linkAttribute` 指定（仍执行正常URL校验）。`/posts/first` 等相对链接按列表重定向后的最终地址解析，也可用 `baseUrl` 指定基准地址。标题取节点文字。重复链接会合并；Markdown 列表先出现“Read more”等按钮、后出现真实标题时，使用真实标题。指向列表自身的链接通常会跳过。
 - 新腕儿的公开列表使用 `adapter: "xinwanr_news"`，`url` 填 `https://www.xinwanr.com/news_list_index`。采集器按公开前端参数POST表单，按数字卡片ID生成详情链接；选择器仍用于标题/摘要，完整日期从详情的 `.pub_time` 补齐，不推测列表月份的年份。
 - 鞭牛士同类公开列表使用 `adapter: "bianews_news"`，POST首页20条，按数字卡片ID生成同站详情地址。电子报永久列表入口的即时 `meta refresh` 最多跟随两层同源地址，再用最终地址解析相对链接；不执行页面脚本。
+- 环球网公开列表使用 `adapter: "huanqiu_news"` 和 `itemSelector: ".item"`，从页面原生textarea读取文章ID、标题、发布毫秒时间和站点域名，只接入article类型及符合URL前缀的环球网文章。环球正文与中国证券网正文的公开页面数据按文章ID匹配后交给现有正文提取和清洗，不执行网页脚本。
 - 详情日期正则捕获Unix秒/毫秒或明确的 `DD-MM-YYYY` / `DD.MM.YYYY` 时，可用 `detail.publishedAtUnit` 声明 `epoch_s`、`epoch_ms` 或 `dmy`。未声明仍按普通日期处理，不猜测模糊的日月顺序；正则应只匹配该文章自己的发布时间。
 - 日期在条目内查找 `publishedAtSelector`，依次尝试 `datetime`、`content`、`title` 属性和文字，无法解析的提示文字不会遮住同一节点的有效日期。没有时区的日期时间可用 `publishedAtUtcOffset`（默认 `+08:00`）；自带时区的时间保留原时区语义，纯 `YYYY-MM-DD` 按 UTC 零点读。不完整的月份、产品版本号和不存在的日历日期不作为发布日期。
 - `parseMode`：普通网页默认 `html`；`markdown` 按 Markdown 链接读；`docusaurus_changelog` 读更新日志标题；`intercom_changelog` 按 Intercom 帮助中心的日期章节读取标题和正文，每节保留自己的网址锚点，默认按 UTC 日历日读取，也可指定 `publishedAtUtcOffset`。需要 Jina 时，显式把 `url` 写成 `https://r.jina.ai/https://目标站/路径` 并配置 `JINA_API_KEY`，不是抓不到就自动切换。Jina 默认返回 Markdown；要继续使用 CSS 选择器，显式设 `parseMode: "html"`。

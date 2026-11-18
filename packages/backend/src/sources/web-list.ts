@@ -194,6 +194,16 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
   const nodes = itemSel ? $(itemSel).toArray() : $("a[href]").toArray();
   for (const node of nodes) {
     const el = $(node);
+    if (c.adapter === "huanqiu_news") {
+      const field = (name: string) => el.find(`textarea.item-${name}`).text().trim();
+      const id = field("aid"), host = field("cnf-host"), title = collapseWhitespace(field("title"));
+      if (field("addltype") !== "article" || !/^[A-Za-z0-9]+$/.test(id) || !/^(?:[a-z0-9-]+\.)*huanqiu\.com$/.test(host) || !title) continue;
+      const url = `https://${host}/article/${id}`;
+      if (seen.has(url) || !allowed(url, source)) continue;
+      seen.add(url);
+      out.push({ url, title, ...toDate(field("time"), "epoch_ms", c.publishedAtUtcOffset) });
+      continue;
+    }
     const linkEl = c.linkSelector ? (el.is(c.linkSelector) ? el : el.find(c.linkSelector).first()) : el.is("a") ? el : el.find("a[href]").first();
     // These public news cards expose numeric article IDs instead of anchor hrefs.
     const idCards = ["xinwanr_news", "bianews_news"].includes(source.config.adapter);

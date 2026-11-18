@@ -10,7 +10,8 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, test } from "node:test";
 import { config } from "@aihot/backend/config";
-import { extractFromUrl, pageRules } from "@aihot/backend/content/extract";
+import { extractFromUrl, pageRules, readableDocument } from "@aihot/backend/content/extract";
+import { contentDocument } from "@aihot/backend/lib/page-content";
 import { sanitizeBody, trimTrailingChrome } from "@aihot/backend/content/sanitize";
 import { unsupportedConfig } from "@aihot/backend/sources/config-keys";
 import { fetchDetail, fetchWebList, fromHtml, fromMarkdown } from "@aihot/backend/sources/web-list";
@@ -298,6 +299,34 @@ test("HTML cards can expose links in data attributes and Xinwanr IDs", () => {
   }
   const ids = fromHtml('<li id="71122"><a class="title">短剧版权合作</a></li><li id="not-an-id"><a class="title">Bad ID</a></li>', 'https://www.xinwanr.com/news_list_index', source({ adapter: 'xinwanr_news', itemSelector: 'li', titleSelector: '.title' }));
   assert.deepEqual(ids.map(c => [c.title, c.url]), [['短剧版权合作', 'https://www.xinwanr.com/news/details?id=71122']]);
+});
+
+test("Huanqiu's inert news cards expose only allowed article identities and real epoch dates", () => {
+  const card = (id: string, host: string, type = 'article') => `<div class="item"><textarea class="item-aid">${id}</textarea><textarea class="item-addltype">${type}</textarea><textarea class="item-cnf-host">${host}</textarea><textarea class="item-title">微短剧行业新动态</textarea><textarea class="item-time">1794356126886</textarea></div>`;
+  const html = card('A123','ent.huanqiu.com') + card('A123','ent.huanqiu.com') + card('B123','ent.huanqiu.com','gallery') + card('C123','ent.huanqiu.com.evil.test') + card('../D123','ent.huanqiu.com') + card('E123','tech.huanqiu.com');
+  const out = fromHtml(html, 'https://ent.huanqiu.com/', source({ adapter: 'huanqiu_news', itemSelector: '.item', allowUrlPrefixes: ['https://ent.huanqiu.com/article/'] }));
+  assert.equal(out.length, 1);
+  assert.equal(out[0]?.url, 'https://ent.huanqiu.com/article/A123');
+  assert.equal(out[0]?.publishedAt?.getTime(), 1794356126886);
+  assert.deepEqual(unsupportedConfig('web_list', { adapter: 'huanqiu_news' }), []);
+});
+
+test("public embedded article bodies match the publisher and requested identity without executing scripts", () => {
+  const prose = '微短剧产业发布合作计划，制作机构围绕精品创作与版权保护开展业务交流。'.repeat(30);
+  const hq = `<html><head><title>微短剧合作计划</title></head><body><h1>微短剧合作计划</h1><textarea class="article-aid">A123</textarea><textarea class="article-content"><article><p>${prose}</p></article></textarea><textarea class="article-source-name"><a href="https://source.example/report">原始发布方</a></textarea></body></html>`;
+  const read = (html: string, url: string) => readableDocument(contentDocument(html), url);
+  const hqBody = read(hq, 'https://ent.huanqiu.com/article/A123');
+  assert.ok(hqBody && hqBody.text.includes(prose));
+  assert.ok(hqBody.html.includes('https://source.example/report'));
+  assert.equal(read(hq, 'https://ent.huanqiu.com/article/B123'), null);
+  const payload = { props: { pageProps: { contId: '806259', data: { contId: '806259', textInfo: { content: `<body><p>${prose}</p><script>globalThis.embeddedArticleExecuted = true;</script></body>` } } } } };
+  const cnstock = `<html><head><title>微短剧合作计划</title></head><body><h1>微短剧合作计划</h1><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(payload).replaceAll('<', '\\u003c')}</script></body></html>`;
+  const stockBody = read(cnstock, 'https://www.cnstock.com/commonDetail/806259');
+  assert.ok(stockBody && stockBody.text.includes(prose));
+  assert.ok(!stockBody.html.includes('<script'));
+  assert.equal((globalThis as Record<string, unknown>).embeddedArticleExecuted, undefined);
+  assert.equal(read(cnstock, 'https://www.cnstock.com/commonDetail/806260'), null);
+  assert.equal(read(cnstock, 'https://example.org/commonDetail/806259'), null);
 });
 
 test("a public JavaScript news array is parsed as JSON5 data without executing scripts", async () => {
